@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AvocAI — Comprenez vos droits. Défendez-vous.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Theme tokens ──────────────────────────────────── */
+    :root, [data-theme="light"] {
+      --bg-page:             #ffffff;
+      --bg-panel:            #f7f8f8;
+      --bg-surface:          #f3f4f5;
+      --bg-surface-elevated: #eeeff0;
+      --text-primary:        #0f1011;
+      --text-body:           #3a3a3f;
+      --text-muted:          #6b6b72;
+      --text-subtle:         #9a9aa3;
+      --border-default:      rgba(0,0,0,0.18);
+      --border-subtle:       rgba(0,0,0,0.10);
+      --btn-bg:              rgba(0,0,0,0.03);
+      --btn-border:          rgba(0,0,0,0.08);
+      --brand:               #5e6ad2;
+      --accent:              #7170ff;
+      --accent-hover:        #828fff;
+      --success:             #27a644;
+      --warning:             #f59e0b;
+      --danger:              #ef4444;
+    }
+    [data-theme="dark"] {
+      --bg-page:             #08090a;
+      --bg-panel:            #0f1011;
+      --bg-surface:          #191a1b;
+      --bg-surface-elevated: #28282c;
+      --text-primary:        #f7f8f8;
+      --text-body:           #d0d6e0;
+      --text-muted:          #8a8f98;
+      --text-subtle:         #62666d;
+      --border-default:      rgba(255,255,255,0.08);
+      --border-subtle:       rgba(255,255,255,0.05);
+      --btn-bg:              rgba(255,255,255,0.02);
+      --btn-border:          rgba(255,255,255,0.08);
+    }
+
+    /* ── Reset & base ──────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { transition: background-color 200ms ease, color 200ms ease; }
+    body {
+      font-family: "Inter", "Inter Variable", sans-serif;
+      font-feature-settings: "cv01", "ss03";
+      background: var(--bg-page);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    *::-webkit-scrollbar { width: 4px; height: 4px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 9999px; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-5px); }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    textarea::placeholder { color: var(--text-subtle); }
+    textarea { color-scheme: light dark; }
+
+    /* ── Responsive navbar ──────────────────────────────── */
+    @media (max-width: 767px) {
+      .nav-center  { display: none !important; }
+      .nav-login   { display: none !important; }
+      .nav-try-btn { padding: 5px 10px !important; font-size: 13px !important; width: auto !important; height: 30px !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    /* ── Stripe / Pro upgrade ───────────────────────────── */
+    const handleProUpgrade = async () => {
+      try {
+        const res = await fetch('/api/create-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) throw new Error('Réponse serveur invalide');
+        const { url } = await res.json();
+        window.location.href = url;
+      } catch (err) {
+        alert("Impossible d'accéder au paiement. Vérifiez que le serveur est démarré (npm start).");
+      }
+    };
+
+    /* ── Shared Components ──────────────────────────────── */
+
+    const RiskMeter = ({ level }) => {
+      const getColor = (l) => l <= 2 ? '#27a644' : l === 3 ? '#f59e0b' : '#ef4444';
+      const getLabel = (l) => l <= 2 ? 'Faible' : l === 3 ? 'Modéré' : l === 4 ? 'Élevé' : 'Critique';
+      const color = getColor(level);
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {[1,2,3,4,5].map(i => (
+            <div key={i} style={{
+              width: 10, height: 10, borderRadius: '50%',
+              background: i <= level ? color : 'var(--border-default)',
+              border: i <= level ? 'none' : '1px solid var(--border-default)',
+              flexShrink: 0,
+            }} />
+          ))}
+          <span style={{ fontSize: 13, fontWeight: 510, color, fontFeatureSettings: '"cv01","ss03"' }}>
+            {getLabel(level)}
+          </span>
+        </div>
+      );
+    };
+
+    const LawBlock = ({ code, title, excerpt, link }) => {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <div style={{
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-default)',
+          borderLeft: '2px solid #5e6ad2',
+          borderRadius: 6,
+          padding: '12px 16px',
+          fontFamily: '"Berkeley Mono", ui-monospace, "SF Mono", Menlo, monospace',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 590, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"', marginBottom: 8 }}>
+            {title ? `${code} — ${title}` : code}
+          </div>
+          {open && (
+            <div style={{ fontSize: 13, color: 'var(--text-body)', lineHeight: 1.6, marginBottom: 8 }}>
+              {excerpt}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <button onClick={() => setOpen(o => !o)}
+              style={{ fontSize: 13, fontWeight: 510, color: '#7170ff', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              {open ? 'Masquer ↑' : 'En savoir + →'}
+            </button>
+            {link && open && (
+              <a href={link} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-muted)', textDecoration: 'none' }}>
+                Lire l'article complet →
+              </a>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    const PremiumBlock = ({ title, body, cta, onCta }) => (
+      <div style={{
+        background: 'var(--bg-surface-elevated)',
+        borderLeft: '3px solid #5e6ad2',
+        borderRadius: '0 6px 6px 0',
+        padding: 16,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 510, color: '#7170ff', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>
+          ✦ Démarche disponible
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 590, color: 'var(--text-primary)', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12, fontFeatureSettings: '"cv01","ss03"' }}>
+          {body}
+        </div>
+        <button
+          onClick={onCta || handleProUpgrade}
+          style={{ width: '100%', padding: '8px 16px', background: '#5e6ad2', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 510, cursor: 'pointer', fontFeatureSettings: '"cv01","ss03"' }}
+          onMouseEnter={e => e.target.style.background = '#828fff'}
+          onMouseLeave={e => e.target.style.background = '#5e6ad2'}
+        >
+          {cta}
+        </button>
+      </div>
+    );
+
+    /* ── Navbar ─────────────────────────────────────────── */
+
+    const Navbar = ({ page, setPage, theme, toggleTheme }) => (
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        height: 56, background: 'var(--bg-panel)',
+        borderBottom: '1px solid var(--border-subtle)',
+        display: 'flex', alignItems: 'center',
+        padding: '0 24px', gap: 0,
+      }}>
+        {/* Logo */}
+        <div onClick={() => setPage('landing')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect width="28" height="28" rx="6" fill="#5e6ad2" />
+            <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
+            <circle cx="14" cy="20" r="1.5" fill="#7170ff" />
+          </svg>
+          <span style={{ fontSize: 16, fontWeight: 590, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"', letterSpacing: '-0.2px' }}>AvocAI</span>
+        </div>
+
+        {/* Center nav — hidden on mobile via CSS */}
+        <div className="nav-center" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 32, alignItems: 'center' }}>
+          {[['Fonctionnalités', 'fonctionnalites'], ['Tarifs', 'tarifs'], ['FAQ', 'faq']].map(([label, id]) => (
+            <a key={id} href={`#${id}`} onClick={e => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }}
+              style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-body)', textDecoration: 'none', fontFeatureSettings: '"cv01","ss03"' }}
+              onMouseEnter={e => e.target.style.color = 'var(--text-primary)'}
+              onMouseLeave={e => e.target.style.color = 'var(--text-body)'}
+            >{label}</a>
+          ))}
+        </div>
+
+        {/* Right buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 'auto' }}>
+          {page === 'landing' ? (
+            <>
+              {/* "Se connecter" hidden on mobile */}
+              <button className="nav-login" onClick={() => setPage('chat')} style={{
+                padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
+                background: 'var(--btn-bg)', cursor: 'pointer',
+                fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
+              }}>Se connecter</button>
+              <button className="nav-try-btn" onClick={() => setPage('chat')}
+                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
+                onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+              >Essayer gratuitement</button>
+            </>
+          ) : (
+            <button onClick={() => setPage('landing')} style={{
+              padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
+              background: 'var(--btn-bg)', color: 'var(--text-body)', cursor: 'pointer',
+              fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"',
+            }}>Retour au site</button>
+          )}
+        </div>
+
+        {/* Theme toggle — fixed bottom right */}
+        <button onClick={toggleTheme} style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 200,
+          width: 40, height: 40, borderRadius: 9999,
+          border: '1px solid var(--btn-border)',
+          background: 'var(--bg-panel)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+          cursor: 'pointer', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          color: 'var(--text-muted)',
+        }}>
+          {theme === 'light' ? (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="8" cy="8" r="3" />
+              <line x1="8" y1="1" x2="8" y2="3" /><line x1="8" y1="13" x2="8" y2="15" />
+              <line x1="1" y1="8" x2="3" y2="8" /><line x1="13" y1="8" x2="15" y2="8" />
+              <line x1="3" y1="3" x2="4.5" y2="4.5" /><line x1="11.5" y1="11.5" x2="13" y2="13" />
+              <line x1="13" y1="3" x2="11.5" y2="4.5" /><line x1="4.5" y1="11.5" x2="3" y2="13" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M13 9.5A5.5 5.5 0 016.5 3 5.5 5.5 0 1013 9.5z" />
+            </svg>
+          )}
+        </button>
+      </nav>
+    );
+
+    /* ── Landing: DemoCard ──────────────────────────────── */
+
+    const DemoCard = ({ setPage }) => (
+      <div style={{
+        maxWidth: 680, margin: '56px auto 0',
+        background: 'var(--bg-surface)', border: '1px solid var(--border-default)',
+        borderRadius: 12, overflow: 'hidden',
+        boxShadow: '0px 1px 3px rgba(0,0,0,0.06), 0px 1px 2px rgba(0,0,0,0.04)',
+        textAlign: 'left',
+      }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#27a644' }} />
+          <span style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-muted)', fontFeatureSettings: '"cv01","ss03"' }}>Exemple de Discussion</span>
+        </div>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ background: '#5e6ad2', color: '#fff', borderRadius: 8, padding: '10px 14px', maxWidth: '80%', fontSize: 15, lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
+              J'ai reçu une amende pour excès de vitesse mais je n'étais pas au volant ce jour-là.
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-default)', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
+                <rect width="28" height="28" rx="4" fill="#5e6ad2" />
+                <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
+              </svg>
+              <span style={{ fontSize: 12, fontWeight: 510, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontFeatureSettings: '"cv01","ss03"' }}>Analyse juridique</span>
+            </div>
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>Risque légal</div>
+                  <RiskMeter level={3} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>Probabilité</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>Faible si contestation rapide</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>Délai légal</div>
+                  <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>45 jours pour contester</div>
+                </div>
+              </div>
+              <LawBlock code="Art. L121-3" title="Code de la Route" excerpt="Le titulaire du certificat d'immatriculation peut s'exonérer de sa responsabilité en désignant l'auteur réel de l'infraction..." />
+              <PremiumBlock title="Contestez cette amende officiellement" body="Nous vous guidons pas à pas pour contester. Formulaire pré-rempli + lettre type inclus." cta="Commencer la démarche →" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* ── Landing: Hero ──────────────────────────────────── */
+
+    const Hero = ({ setPage }) => (
+      <section style={{ background: 'var(--bg-page)', padding: '120px 24px 80px', textAlign: 'center' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: 9999, border: '1px solid rgba(0,0,0,0.227)', marginBottom: 32, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: '#5e6ad2' }}>
+            Gratuit — Analysez votre situation maintenant
+          </div>
+          <h1 style={{ fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1.05, letterSpacing: '-1.056px', margin: '0 0 20px', fontFeatureSettings: '"cv01","ss03"', fontSize: 55 }}>
+            Comprenez ce que vous risquez<br />Défendez-vous mieux.
+          </h1>
+          <p style={{ fontWeight: 400, color: 'var(--text-muted)', lineHeight: 1.6, letterSpacing: '-0.165px', maxWidth: 560, margin: '0 auto 36px', fontFeatureSettings: '"cv01","ss03"', fontSize: 17 }}>
+            Décrivez n'importe quelle situation à AvocAI. Il analyse vos risques juridiques, évalue vos chances d'être contrôlé et vous explique les articles de loi qui s'appliquent gratuitement.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
+            <button onClick={() => setPage('chat')}
+              style={{ padding: '10px 24px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 18, width: 240 }}
+              onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+              onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+            >Analyser ma situation</button>
+            <button style={{ padding: '10px 24px', borderRadius: 6, border: '1px solid rgba(0,0,0,0.235)', background: 'var(--btn-bg)', color: 'var(--text-body)', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 19, width: 251 }}>
+              Voir comment ça marche
+            </button>
+          </div>
+          <p style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>
+            Déjà +15 000 situations analysées · Droit français &amp; européen
+          </p>
+          <DemoCard setPage={setPage} />
+        </div>
+      </section>
+    );
+
+    /* ── Landing: HowItWorks ────────────────────────────── */
+
+    const HowItWorks = () => {
+      const steps = [
+        { n: '01', title: 'Décrivez votre situation', body: 'Écrivez librement, comme à un ami. Pas besoin de jargon juridique.' },
+        { n: '02', title: 'AvocAI analyse en temps réel', body: "L'IA identifie les lois applicables, évalue vos risques et calcule vos chances." },
+        { n: '03', title: 'Défendez-vous si nécessaire', body: "Passez au Pro pour que l'IA remplisse vos démarches officielles à votre place." },
+      ];
+      return (
+        <section id="fonctionnalites" style={{ background: 'var(--bg-panel)', padding: '80px 24px', borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
+            <h2 style={{ fontSize: 32, fontWeight: 400, color: 'var(--text-primary)', letterSpacing: '-0.704px', marginBottom: 48, fontFeatureSettings: '"cv01","ss03"' }}>
+              Comment ça marche
+            </h2>
+            <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {steps.map(s => (
+                <div key={s.n} style={{ flex: '1 1 240px', maxWidth: 320, background: 'var(--btn-bg)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 28, textAlign: 'left' }}>
+                  <div style={{ fontSize: 48, fontWeight: 510, color: '#5e6ad2', lineHeight: 1, marginBottom: 12, fontFeatureSettings: '"cv01","ss03"' }}>{s.n}</div>
+                  <div style={{ fontSize: 20, fontWeight: 590, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: '-0.24px', fontFeatureSettings: '"cv01","ss03"' }}>{s.title}</div>
+                  <div style={{ fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.6, fontFeatureSettings: '"cv01","ss03"' }}>{s.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    };
+
+    /* ── Landing: Pricing ───────────────────────────────── */
+
+    const Pricing = ({ setPage }) => {
+      const check = <span style={{ color: '#27a644', marginRight: 8 }}>✓</span>;
+      const features = {
+        free: ['Analyse juridique illimitée', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite', 'Historique des 7 derniers jours'],
+        pro: ['Tout le plan gratuit', 'Aide au remplissage de démarches', 'Formulaires officiels pré-remplis', 'Lettres types générées par IA', 'Suivi de dossier pas à pas', 'Alertes délais légaux', 'Historique illimité'],
+      };
+      return (
+        <section id="tarifs" style={{ background: 'var(--bg-page)', padding: '80px 24px' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
+            <h2 style={{ fontSize: 32, fontWeight: 400, color: 'var(--text-primary)', letterSpacing: '-0.704px', marginBottom: 12, fontFeatureSettings: '"cv01","ss03"' }}>Tarifs</h2>
+            <p style={{ fontSize: 18, color: 'var(--text-muted)', marginBottom: 48, fontFeatureSettings: '"cv01","ss03"' }}>
+              Commencez gratuitement, passez à Pro quand vous en avez besoin.
+            </p>
+            <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 800, margin: '0 auto' }}>
+              {/* Free */}
+              <div style={{ flex: '1 1 300px', maxWidth: 360, background: 'var(--btn-bg)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 32, textAlign: 'left' }}>
+                <div style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 8, fontFeatureSettings: '"cv01","ss03"' }}>Gratuit</div>
+                <div style={{ fontSize: 48, fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 24, fontFeatureSettings: '"cv01","ss03"' }}>0€</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+                  {features.free.map(f => <div key={f} style={{ fontSize: 15, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>)}
+                </div>
+                <button onClick={() => setPage('chat')} style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: '1px solid var(--btn-border)', background: 'var(--btn-bg)', color: 'var(--text-body)', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>
+                  Commencer gratuitement
+                </button>
+              </div>
+              {/* Pro */}
+              <div style={{ flex: '1 1 300px', maxWidth: 360, background: 'var(--btn-bg)', border: '1px solid #5e6ad2', borderRadius: 8, padding: 32, textAlign: 'left', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: -12, right: 20, background: '#5e6ad2', color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>Le plus populaire</div>
+                <div style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>AvocAI Pro</div>
+                <div style={{ fontSize: 48, fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>
+                  1,49€<span style={{ fontSize: 30, fontWeight: 590 }}>/semaine</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, fontFeatureSettings: '"cv01","ss03"' }}>ou 79€/an · Résiliable à tout moment</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+                  {features.pro.map(f => <div key={f} style={{ fontSize: 15, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>)}
+                </div>
+                <button onClick={handleProUpgrade}
+                  style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}
+                  onMouseEnter={e => e.target.style.background = '#828fff'}
+                  onMouseLeave={e => e.target.style.background = '#5e6ad2'}
+                >Passer à Pro</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    };
+
+    /* ── Landing: UseCases ──────────────────────────────── */
+
+    const UseCases = () => {
+      const pills = ['Amende contestée', 'Litige locataire', 'Conflit au travail', 'Accident de la route', 'Problème de voisinage', 'Garde à vue', 'Contrat litigieux', 'Impayés', 'Licenciement abusif', 'Discrimination', 'Arnaque en ligne'];
+      const [active, setActive] = useState(null);
+      return (
+        <section style={{ background: 'var(--bg-page)', padding: '64px 24px' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
+            <h2 style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', letterSpacing: '-0.288px', marginBottom: 28, fontFeatureSettings: '"cv01","ss03"' }}>
+              Situations courantes analysées par AvocAI
+            </h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+              {pills.map(p => (
+                <button key={p} onClick={() => setActive(p === active ? null : p)} style={{
+                  padding: '7px 16px', borderRadius: 9999,
+                  border: `1px solid ${p === active ? '#5e6ad2' : 'var(--border-default)'}`,
+                  background: p === active ? 'rgba(94,106,210,0.08)' : 'var(--btn-bg)',
+                  color: p === active ? '#7170ff' : 'var(--text-body)',
+                  cursor: 'pointer', fontSize: 13, fontWeight: 510,
+                  fontFeatureSettings: '"cv01","ss03"', transition: 'all 0.15s ease',
+                }}>{p}</button>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    };
+
+    /* ── Landing: FAQ ───────────────────────────────────── */
+
+    const FAQ = () => {
+      const [open, setOpen] = useState(null);
+      const items = [
+        { q: "AvocAI remplace-t-il un vrai avocat ?", a: "Non. AvocAI est un outil d'information juridique. Pour une procédure judiciaire formelle, consultez toujours un avocat qualifié." },
+        { q: "Mes conversations sont-elles confidentielles ?", a: "Oui. Vos données sont chiffrées et ne sont jamais partagées avec des tiers." },
+        { q: "Pour quel pays AvocAI fonctionne-t-il ?", a: "AvocAI est spécialisé dans le droit français et les réglementations européennes." },
+        { q: "Comment fonctionne l'aide aux démarches Pro ?", a: "L'IA détecte quand votre situation nécessite une action officielle et vous guide formulaire par formulaire, avec les textes pré-remplis." },
+      ];
+      return (
+        <section id="faq" style={{ background: 'var(--bg-page)', padding: '80px 24px', borderTop: '1px solid var(--border-subtle)' }}>
+          <div style={{ maxWidth: 720, margin: '0 auto' }}>
+            <h2 style={{ fontSize: 32, fontWeight: 400, color: 'var(--text-primary)', letterSpacing: '-0.704px', marginBottom: 40, textAlign: 'center', fontFeatureSettings: '"cv01","ss03"' }}>
+              Questions fréquentes
+            </h2>
+            {items.map((item, i) => (
+              <div key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <button onClick={() => setOpen(open === i ? null : i)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                  <span style={{ fontSize: 16, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>{item.q}</span>
+                  <span style={{ fontSize: 18, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 16 }}>{open === i ? '−' : '+'}</span>
+                </button>
+                {open === i && <div style={{ paddingBottom: 18, fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.6, fontFeatureSettings: '"cv01","ss03"' }}>{item.a}</div>}
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    };
+
+    /* ── Landing: Footer ────────────────────────────────── */
+
+    const Footer = () => (
+      <footer style={{ background: 'var(--bg-panel)', borderTop: '1px solid var(--border-subtle)', padding: '48px 24px 24px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 40, marginBottom: 40 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 590, color: 'var(--text-primary)', marginBottom: 8, fontFeatureSettings: '"cv01","ss03"' }}>AvocAI</div>
+              <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6, fontFeatureSettings: '"cv01","ss03"' }}>Comprenez vos droits.<br />Défendez-vous.</div>
+            </div>
+            {[
+              { title: 'Produit', links: ['Fonctionnalités', 'Tarifs', 'Changelog'] },
+              { title: 'Légal', links: ['Mentions légales', 'Confidentialité', 'CGU'] },
+              { title: 'Contact', links: ['Support', 'Presse', 'Partenaires'] },
+            ].map(col => (
+              <div key={col.title}>
+                <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-primary)', marginBottom: 12, fontFeatureSettings: '"cv01","ss03"' }}>{col.title}</div>
+                {col.links.map(l => (
+                  <a key={l} href="#" onClick={e => e.preventDefault()} style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)', textDecoration: 'none', marginBottom: 8, fontFeatureSettings: '"cv01","ss03"' }}
+                    onMouseEnter={e => e.target.style.color = '#7170ff'}
+                    onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
+                  >{l}</a>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 20 }}>
+            <p style={{ fontSize: 12, color: 'var(--text-subtle)', textAlign: 'center', fontFeatureSettings: '"cv01","ss03"' }}>
+              © 2025 AvocAI · AvocAI n'est pas un cabinet d'avocats et ne fournit pas de conseil juridique.
+            </p>
+          </div>
+        </div>
+      </footer>
+    );
+
+    const LandingPage = ({ setPage }) => (
+      <div>
+        <Hero setPage={setPage} />
+        <HowItWorks />
+        <Pricing setPage={setPage} />
+        <UseCases />
+        <FAQ />
+        <Footer />
+      </div>
+    );
+
+    /* ── Chat: Loading card ─────────────────────────────── */
+
+    const LoadingCard = () => (
+      <div style={{ maxWidth: '88%' }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-panel)' }}>
+            <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
+              <rect width="28" height="28" rx="4" fill="#5e6ad2" />
+              <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
+            </svg>
+            <span style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.6, fontFeatureSettings: '"cv01","ss03"' }}>Analyse de situation</span>
+          </div>
+          <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #5e6ad2', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+            <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFeatureSettings: '"cv01","ss03"' }}>AvocAI analyse votre situation...</span>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* ── Chat: AI Message Card ──────────────────────────── */
+
+    const AIMessageCard = ({ msg }) => (
+      <div style={{ maxWidth: '88%' }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-panel)' }}>
+            <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
+              <rect width="28" height="28" rx="4" fill="#5e6ad2" />
+              <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
+            </svg>
+            <span style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.6, fontFeatureSettings: '"cv01","ss03"' }}>Analyse de situation</span>
+          </div>
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ fontSize: 15, color: 'var(--text-body)', lineHeight: 1.6, margin: 0, fontFeatureSettings: '"cv01","ss03"' }}>{msg.summary}</p>
+
+            {/* Risk panel */}
+            <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Risque juridique</div>
+                <RiskMeter level={msg.risk} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Probabilité</div>
+                <div style={{ fontSize: 13, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{msg.probability}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Délai d'action</div>
+                <div style={{ fontSize: 13, fontWeight: 510, color: '#f59e0b', fontFeatureSettings: '"cv01","ss03"' }}>{msg.delai}</div>
+              </div>
+            </div>
+
+            {/* Articles */}
+            {msg.articles && msg.articles.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, fontFeatureSettings: '"cv01","ss03"' }}>Articles de loi applicables</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {msg.articles.map((a, i) => <LawBlock key={i} {...a} />)}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            {msg.actions && msg.actions.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, fontFeatureSettings: '"cv01","ss03"' }}>Ce que vous pouvez faire</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {msg.actions.map((a, i) => (
+                    <div key={i} style={{ fontSize: 14, color: 'var(--text-body)', display: 'flex', gap: 8, alignItems: 'flex-start', fontFeatureSettings: '"cv01","ss03"' }}>
+                      <span style={{ color: '#27a644', flexShrink: 0, marginTop: 1 }}>·</span> {a}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Premium */}
+            {msg.premium && (
+              <PremiumBlock
+                title={msg.premiumTitle || "Démarche officielle disponible"}
+                body={msg.premiumBody || "Nous vous guidons pas à pas pour finaliser cette démarche."}
+                cta="Commencer la démarche →"
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+
+    /* ── Chat: Error Card ───────────────────────────────── */
+
+    const ErrorCard = ({ message }) => (
+      <div style={{ maxWidth: '88%' }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ color: '#ef4444', fontSize: 16 }}>⚠</span>
+            <span style={{ fontSize: 14, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>Erreur</span>
+          </div>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5, margin: 0, fontFeatureSettings: '"cv01","ss03"' }}>{message}</p>
+        </div>
+      </div>
+    );
+
+    /* ── Chat: Empty State ──────────────────────────────── */
+
+    const EmptyState = ({ onSuggestion }) => {
+      const suggestions = ['Amende contestée', 'Litige locataire', 'Conflit au travail', 'Accident de la route', 'Harcèlement', 'Impayés'];
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 40, textAlign: 'center' }}>
+          <svg width="40" height="40" viewBox="0 0 28 28" fill="none" style={{ marginBottom: 20, opacity: 0.4 }}>
+            <rect width="28" height="28" rx="6" fill="#5e6ad2" />
+            <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
+            <circle cx="14" cy="20" r="1.5" fill="#7170ff" />
+          </svg>
+          <h2 style={{ fontSize: 32, fontWeight: 400, color: 'var(--text-primary)', letterSpacing: '-0.704px', marginBottom: 12, fontFeatureSettings: '"cv01","ss03"' }}>
+            Décrivez votre situation juridique
+          </h2>
+          <p style={{ fontSize: 18, color: 'var(--text-muted)', marginBottom: 32, maxWidth: 420, lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
+            Décrivez librement, AvocAI analyse vos risques et vous explique vos droits.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+            {suggestions.map(s => (
+              <button key={s} onClick={() => onSuggestion(s)} style={{
+                padding: '7px 16px', borderRadius: 9999,
+                border: '1px solid var(--border-default)',
+                background: 'var(--btn-bg)', color: 'var(--text-body)',
+                cursor: 'pointer', fontSize: 13, fontWeight: 510,
+                fontFeatureSettings: '"cv01","ss03"', transition: 'border-color 0.15s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#5e6ad2'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-default)'}
+              >{s}</button>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    /* ── Chat Interface ──────────────────────────────────── */
+
+    const ChatInterface = ({ setPage }) => {
+      const [messages, setMessages] = useState([]);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [sidebarOpen, setSidebarOpen] = useState(true);
+      const [convTitle, setConvTitle] = useState(null);
+      const bottomRef = useRef(null);
+
+      const handleSend = async (text) => {
+        const msg = (text || input).trim();
+        if (!msg || loading) return;
+        setInput('');
+        if (!convTitle) setConvTitle(msg.length > 40 ? msg.slice(0, 40) + '…' : msg);
+
+        const userMsg = { role: 'user', text: msg };
+        setMessages(prev => [...prev, userMsg]);
+        setLoading(true);
+
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg }),
+          });
+          if (!res.ok) {
+            let errMsg = `Erreur serveur (${res.status})`;
+            try { const body = await res.json(); if (body.error) errMsg = body.error; } catch {}
+            throw new Error(errMsg);
+          }
+          const data = await res.json();
+
+          const articles = (data.articles || []).map(a => {
+            const parts = (a.code || '').split('—');
+            return {
+              code: parts[0]?.trim() || a.code,
+              title: parts[1]?.trim() || '',
+              excerpt: a.texte,
+              link: a.lien,
+            };
+          });
+
+          const aiMsg = {
+            role: 'ai',
+            summary: data.resume,
+            risk: data.risque_niveau || 3,
+            probability: data.probabilite,
+            delai: data.delai_legal,
+            articles,
+            actions: data.actions_gratuites || [],
+            premium: data.demarche_disponible,
+            premiumTitle: data.demarche_titre,
+            premiumBody: data.demarche_description,
+          };
+          setMessages(prev => [...prev, aiMsg]);
+        } catch (err) {
+          const errorMsg = {
+            role: 'error',
+            text: err.message.includes('fetch')
+              ? "Impossible de contacter le serveur. Vérifiez que le serveur est démarré avec npm start."
+              : err.message,
+          };
+          setMessages(prev => [...prev, errorMsg]);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, [messages, loading]);
+
+      return (
+        <div style={{ display: 'flex', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+          {/* Sidebar */}
+          {sidebarOpen && (
+            <aside style={{ width: 260, flexShrink: 0, background: 'var(--bg-panel)', borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: 12 }}>
+                <button onClick={() => { setMessages([]); setConvTitle(null); }}
+                  style={{ width: '100%', padding: '8px 16px', background: '#5e6ad2', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                >
+                  <span style={{ fontSize: 16 }}>+</span> Nouvelle analyse
+                </button>
+              </div>
+
+              {/* Conv list — only shows once user has sent a message */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
+                {convTitle && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 8px 4px', fontFeatureSettings: '"cv01","ss03"' }}>Récent</div>
+                    <div style={{ padding: '9px 10px', borderRadius: 6, background: 'var(--bg-surface)', borderLeft: '2px solid #5e6ad2', marginBottom: 2 }}>
+                      <div style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{convTitle}</div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* User area */}
+              <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#5e6ad2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 510, color: '#fff' }}>J</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>Jean Dupont</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>Plan Gratuit</div>
+                </div>
+                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16 }}>⚙</button>
+              </div>
+            </aside>
+          )}
+
+          {/* Main chat area */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-page)' }}>
+            {/* Chat header */}
+            <div style={{ height: 48, borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 12, flexShrink: 0 }}>
+              <button onClick={() => setSidebarOpen(o => !o)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: 4 }}>☰</button>
+              <span style={{ fontSize: 15, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>
+                {convTitle || 'Nouvelle analyse'}
+              </span>
+            </div>
+
+            {/* Messages */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 24px 8px' }}>
+              {messages.length === 0 ? (
+                <EmptyState onSuggestion={handleSend} />
+              ) : (
+                <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {messages.map((msg, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                      {msg.role === 'user' ? (
+                        <div style={{ background: '#5e6ad2', color: '#fff', borderRadius: 8, padding: '10px 14px', maxWidth: '70%', fontSize: 15, lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
+                          {msg.text}
+                        </div>
+                      ) : msg.role === 'error' ? (
+                        <ErrorCard message={msg.text} />
+                      ) : (
+                        <AIMessageCard msg={msg} />
+                      )}
+                    </div>
+                  ))}
+                  {loading && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                      <LoadingCard />
+                    </div>
+                  )}
+                  <div ref={bottomRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Input bar */}
+            <div style={{ flexShrink: 0, padding: '12px 24px 16px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-page)' }}>
+              <div style={{ maxWidth: 780, margin: '0 auto' }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                  <textarea
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                    placeholder="Décrivez votre situation..."
+                    rows={1}
+                    disabled={loading}
+                    style={{
+                      flex: 1, padding: '10px 14px',
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 8, resize: 'none',
+                      fontSize: 15, color: 'var(--text-primary)',
+                      fontFamily: 'Inter Variable, Inter, sans-serif',
+                      fontFeatureSettings: '"cv01","ss03"',
+                      outline: 'none', lineHeight: 1.5,
+                      maxHeight: 120, overflowY: 'auto',
+                      opacity: loading ? 0.6 : 1,
+                    }}
+                    onInput={e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
+                  />
+                  <button onClick={() => handleSend()} disabled={loading}
+                    style={{ width: 40, height: 40, borderRadius: 6, border: 'none', background: loading ? '#9aa2e8' : '#5e6ad2', color: '#fff', cursor: loading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#828fff'; }}
+                    onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#5e6ad2'; }}
+                  >
+                    {loading ? (
+                      <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite' }} />
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M2 8H14M14 8L9 3M14 8L9 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-subtle)', textAlign: 'center', marginTop: 8, fontFeatureSettings: '"cv01","ss03"' }}>
+                  AvocAI ne remplace pas un avocat · Informations basées sur le droit français
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ── App root ────────────────────────────────────────── */
+
+    const App = () => {
+      const [page, setPage] = useState('landing');
+      const [theme, setTheme] = useState('light');
+
+      const toggleTheme = () => {
+        const next = theme === 'light' ? 'dark' : 'light';
+        setTheme(next);
+        document.documentElement.setAttribute('data-theme', next);
+      };
+
+      return (
+        <div>
+          <Navbar page={page} setPage={setPage} theme={theme} toggleTheme={toggleTheme} />
+          {page === 'landing' ? <LandingPage setPage={setPage} /> : <ChatInterface setPage={setPage} />}
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
