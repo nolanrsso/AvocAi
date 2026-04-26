@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AvocAI — Connexion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-page:      #08090a;
+      --bg-surface:   #191a1b;
+      --bg-input:     #0f1011;
+      --text-primary: #f7f8f8;
+      --text-muted:   #8a8f98;
+      --text-subtle:  #62666d;
+      --border:       rgba(255,255,255,0.10);
+      --border-hover: rgba(255,255,255,0.20);
+      --brand:        #5e6ad2;
+      --accent:       #828fff;
+      --danger:       #ef4444;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", sans-serif;
+      font-feature-settings: "cv01","ss03";
+      background: var(--bg-page);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 400px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 36px;
+      text-decoration: none;
+    }
+    .logo span {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 510;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    label {
+      font-size: 13px;
+      font-weight: 510;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+    }
+    input {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--brand); }
+    input::placeholder { color: var(--text-subtle); }
+    button[type="submit"] {
+      width: 100%;
+      padding: 11px 16px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 510;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 8px;
+    }
+    button[type="submit"]:hover { background: var(--accent); }
+    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: #f87171;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+    }
+    .error.show { display: block; }
+    .alt {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 24px;
+    }
+    .alt a { color: var(--brand); text-decoration: none; font-weight: 510; }
+    .alt a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a href="/" class="logo">
+      <svg width="32" height="32" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="6" fill="#5e6ad2"/>
+        <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fill-opacity="0.95"/>
+        <circle cx="14" cy="20" r="1.5" fill="#7170ff"/>
+      </svg>
+      <span>AvocAI</span>
+    </a>
+
+    <h1>Bon retour</h1>
+    <p class="subtitle">Connectez-vous pour accéder à votre assistant juridique.</p>
+
+    <div class="error" id="error"></div>
+
+    <form id="form">
+      <div>
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="vous@exemple.com" required autofocus />
+      </div>
+      <div>
+        <label for="password">Mot de passe</label>
+        <input type="password" id="password" placeholder="••••••••" required />
+      </div>
+      <button type="submit" id="submit">Se connecter</button>
+    </form>
+
+    <p class="alt">Pas encore de compte ? <a href="/register">Créer un compte</a></p>
+  </div>
+
+  <script>
+    if (localStorage.getItem('avocai_token')) window.location.href = '/';
+
+    const form = document.getElementById('form');
+    const errorEl = document.getElementById('error');
+    const submitBtn = document.getElementById('submit');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.classList.remove('show');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Connexion…';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erreur');
+        localStorage.setItem('avocai_token', data.token);
+        localStorage.setItem('avocai_user', JSON.stringify(data.user));
+        window.location.href = '/';
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.add('show');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Se connecter';
+      }
+    });
+  </script>
+</body>
+</html>

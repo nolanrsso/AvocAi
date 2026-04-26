@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
   <style>
     /* ── Theme tokens ──────────────────────────────────── */
-    :root, [data-theme="light"] {
+    :root {
       --bg-page:             #ffffff;
       --bg-panel:            #f7f8f8;
       --bg-surface:          #f3f4f5;
@@ -28,6 +28,15 @@
       --success:             #27a644;
       --warning:             #f59e0b;
       --danger:              #ef4444;
+    }
+    [data-theme="light"] {
+      --bg-page:             #e9e9e9;
+      --bg-panel:            #dbdbdb;
+      --bg-surface:          #dbdbdb;
+      --bg-surface-elevated: #dbdbdb;
+      --btn-bg:              #dbdbdb;
+      --border-default:      rgba(0,0,0,0.18);
+      --border-subtle:       rgba(0,0,0,0.10);
     }
     [data-theme="dark"] {
       --bg-page:             #08090a;
@@ -88,6 +97,23 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    /* ── Auth helpers ───────────────────────────────────── */
+    const getToken = () => localStorage.getItem('avocai_token');
+    const getStoredUser = () => {
+      try { return JSON.parse(localStorage.getItem('avocai_user') || 'null'); }
+      catch { return null; }
+    };
+    const authHeaders = () => {
+      const t = getToken();
+      return t ? { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' }
+               : { 'Content-Type': 'application/json' };
+    };
+    const logout = () => {
+      localStorage.removeItem('avocai_token');
+      localStorage.removeItem('avocai_user');
+      window.location.href = '/login';
+    };
+
     /* ── Stripe / Pro upgrade ───────────────────────────── */
     const handleProUpgrade = async () => {
       try {
@@ -126,6 +152,34 @@
       );
     };
 
+    const SanctionsBlock = ({ amende, prison }) => (
+      <div style={{
+        background: 'rgba(239,68,68,0.05)',
+        border: '1px solid rgba(239,68,68,0.22)',
+        borderLeft: '3px solid #ef4444',
+        borderRadius: 8,
+        padding: '18px 22px',
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14, fontFeatureSettings: '"cv01","ss03"' }}>
+          ⚠ Sanctions encourues
+        </div>
+        <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+          {amende && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'rgba(239,68,68,0.65)', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>Amende maximale</div>
+              <div style={{ fontSize: 30, fontWeight: 700, color: '#ef4444', letterSpacing: '-0.8px', lineHeight: 1, fontFeatureSettings: '"cv01","ss03"' }}>−{amende}</div>
+            </div>
+          )}
+          {prison && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'rgba(239,68,68,0.65)', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>Emprisonnement</div>
+              <div style={{ fontSize: 30, fontWeight: 700, color: '#ef4444', letterSpacing: '-0.8px', lineHeight: 1, fontFeatureSettings: '"cv01","ss03"' }}>{prison}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
     const LawBlock = ({ code, title, excerpt, link }) => {
       const [open, setOpen] = React.useState(false);
       return (
@@ -148,7 +202,7 @@
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             <button onClick={() => setOpen(o => !o)}
               style={{ fontSize: 13, fontWeight: 510, color: '#7170ff', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              {open ? 'Masquer ↑' : 'En savoir + →'}
+              {open ? 'Masquer ↑' : 'En savoir plus'}
             </button>
             {link && open && (
               <a href={link} target="_blank" rel="noopener noreferrer"
@@ -224,12 +278,12 @@
           {page === 'landing' ? (
             <>
               {/* "Se connecter" hidden on mobile */}
-              <button className="nav-login" onClick={() => setPage('chat')} style={{
+              <button className="nav-login" onClick={() => window.location.href = '/login'} style={{
                 padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
                 background: 'var(--btn-bg)', cursor: 'pointer',
                 fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
               }}>Se connecter</button>
-              <button className="nav-try-btn" onClick={() => setPage('chat')}
+              <button className="nav-try-btn" onClick={() => window.location.href = '/register'}
                 style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
                 onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
                 onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
@@ -255,7 +309,7 @@
           alignItems: 'center', justifyContent: 'center',
           color: 'var(--text-muted)',
         }}>
-          {theme === 'light' ? (
+          {theme === 'dark' ? (
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="8" cy="8" r="3" />
               <line x1="8" y1="1" x2="8" y2="3" /><line x1="8" y1="13" x2="8" y2="15" />
@@ -292,29 +346,44 @@
               J'ai reçu une amende pour excès de vitesse mais je n'étais pas au volant ce jour-là.
             </div>
           </div>
-          <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-default)', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{
+            background: '#252529', border: '1px solid rgba(0,0,0,0.35)', borderRadius: 10, overflow: 'hidden',
+            '--text-primary': '#ffffff',
+            '--text-body': 'rgba(255,255,255,0.88)',
+            '--text-muted': 'rgba(255,255,255,0.60)',
+            '--text-subtle': 'rgba(255,255,255,0.42)',
+            '--bg-panel': 'rgba(255,255,255,0.09)',
+            '--bg-surface': 'rgba(255,255,255,0.07)',
+            '--bg-surface-elevated': 'rgba(255,255,255,0.05)',
+            '--border-default': 'rgba(255,255,255,0.14)',
+            '--border-subtle': 'rgba(255,255,255,0.08)',
+            '--btn-bg': 'rgba(255,255,255,0.09)',
+            '--btn-border': 'rgba(255,255,255,0.14)',
+          }}>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
                 <rect width="28" height="28" rx="4" fill="#5e6ad2" />
                 <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
               </svg>
-              <span style={{ fontSize: 12, fontWeight: 510, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontFeatureSettings: '"cv01","ss03"' }}>Analyse juridique</span>
+              <span style={{ fontSize: 12, fontWeight: 510, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: 0.5, fontFeatureSettings: '"cv01","ss03"' }}>Analyse juridique</span>
             </div>
-            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Risk row */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>Risque légal</div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Risque légal</div>
                   <RiskMeter level={3} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>Probabilité</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>Faible si contestation rapide</div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Chances de poursuites</div>
+                  <div style={{ fontSize: 15, fontWeight: 590, color: '#ffffff', fontFeatureSettings: '"cv01","ss03"' }}>12%</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>Délai légal</div>
-                  <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>45 jours pour contester</div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Délai légal</div>
+                  <div style={{ fontSize: 15, fontWeight: 510, color: '#f59e0b', fontFeatureSettings: '"cv01","ss03"' }}>45 jours pour contester</div>
                 </div>
               </div>
+              <SanctionsBlock amende="3 750 €" prison="3 mois" />
               <LawBlock code="Art. L121-3" title="Code de la Route" excerpt="Le titulaire du certificat d'immatriculation peut s'exonérer de sa responsabilité en désignant l'auteur réel de l'infraction..." />
               <PremiumBlock title="Contestez cette amende officiellement" body="Nous vous guidons pas à pas pour contester. Formulaire pré-rempli + lettre type inclus." cta="Commencer la démarche →" />
             </div>
@@ -326,9 +395,9 @@
     /* ── Landing: Hero ──────────────────────────────────── */
 
     const Hero = ({ setPage }) => (
-      <section style={{ background: 'var(--bg-page)', padding: '120px 24px 80px', textAlign: 'center' }}>
+      <section style={{ background: 'var(--bg-page)', padding: '72px 24px 60px', textAlign: 'center' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: 9999, border: '1px solid rgba(0,0,0,0.227)', marginBottom: 32, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: '#5e6ad2' }}>
+          <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: 9999, border: '1px solid rgba(94,106,210,0.35)', marginBottom: 32, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: '#5e6ad2' }}>
             Gratuit — Analysez votre situation maintenant
           </div>
           <h1 style={{ fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1.05, letterSpacing: '-1.056px', margin: '0 0 20px', fontFeatureSettings: '"cv01","ss03"', fontSize: 55 }}>
@@ -570,23 +639,28 @@
             <span style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.6, fontFeatureSettings: '"cv01","ss03"' }}>Analyse de situation</span>
           </div>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <p style={{ fontSize: 15, color: 'var(--text-body)', lineHeight: 1.6, margin: 0, fontFeatureSettings: '"cv01","ss03"' }}>{msg.summary}</p>
+            <p style={{ fontSize: 14, color: 'var(--text-body)', lineHeight: 1.6, margin: 0, fontFeatureSettings: '"cv01","ss03"' }}>{msg.summary}</p>
 
             {/* Risk panel */}
-            <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
+            <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 20 }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Risque juridique</div>
+                <div style={{ fontSize: 12, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Risque légal</div>
                 <RiskMeter level={msg.risk} />
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Probabilité</div>
-                <div style={{ fontSize: 13, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{msg.probability}</div>
+                <div style={{ fontSize: 12, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Chances de poursuites</div>
+                <div style={{ fontSize: 15, fontWeight: 590, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{msg.probability}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Délai d'action</div>
-                <div style={{ fontSize: 13, fontWeight: 510, color: '#f59e0b', fontFeatureSettings: '"cv01","ss03"' }}>{msg.delai}</div>
+                <div style={{ fontSize: 12, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Délai légal</div>
+                <div style={{ fontSize: 15, fontWeight: 510, color: '#f59e0b', fontFeatureSettings: '"cv01","ss03"' }}>{msg.delai}</div>
               </div>
             </div>
+
+            {/* Sanctions */}
+            {msg.sanctions && (msg.sanctions.amende_max || msg.sanctions.prison_max) && (
+              <SanctionsBlock amende={msg.sanctions.amende_max} prison={msg.sanctions.prison_max} />
+            )}
 
             {/* Articles */}
             {msg.articles && msg.articles.length > 0 && (
@@ -682,7 +756,48 @@
       const [loading, setLoading] = useState(false);
       const [sidebarOpen, setSidebarOpen] = useState(true);
       const [convTitle, setConvTitle] = useState(null);
+      const [convId, setConvId] = useState(null);
+      const [conversations, setConversations] = useState([]);
+      const [user, setUser] = useState(getStoredUser());
+      const [authChecked, setAuthChecked] = useState(false);
       const bottomRef = useRef(null);
+
+      // Auth check + initial conv load
+      useEffect(() => {
+        if (!getToken()) { window.location.href = '/login'; return; }
+        (async () => {
+          try {
+            const meRes = await fetch('/api/auth/me', { headers: authHeaders() });
+            if (!meRes.ok) { logout(); return; }
+            const me = await meRes.json();
+            setUser(me.user);
+            localStorage.setItem('avocai_user', JSON.stringify(me.user));
+            const cRes = await fetch('/api/conversations', { headers: authHeaders() });
+            if (cRes.ok) {
+              const { conversations: convs } = await cRes.json();
+              setConversations(convs);
+            }
+            setAuthChecked(true);
+          } catch { logout(); }
+        })();
+      }, []);
+
+      const loadConversation = async (id) => {
+        try {
+          const res = await fetch('/api/conversations/' + id, { headers: authHeaders() });
+          if (!res.ok) return;
+          const { conversation, messages: msgs } = await res.json();
+          setConvId(conversation.id);
+          setConvTitle(conversation.title);
+          setMessages(msgs);
+        } catch {}
+      };
+
+      const newConversation = () => {
+        setMessages([]);
+        setConvTitle(null);
+        setConvId(null);
+      };
 
       const handleSend = async (text) => {
         const msg = (text || input).trim();
@@ -697,15 +812,24 @@
         try {
           const res = await fetch('/api/chat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: msg }),
+            headers: authHeaders(),
+            body: JSON.stringify({ message: msg, conversation_id: convId }),
           });
+          if (res.status === 401) { logout(); return; }
           if (!res.ok) {
             let errMsg = `Erreur serveur (${res.status})`;
             try { const body = await res.json(); if (body.error) errMsg = body.error; } catch {}
             throw new Error(errMsg);
           }
           const data = await res.json();
+          if (data.conversation_id && !convId) {
+            setConvId(data.conversation_id);
+            // refresh conv list
+            try {
+              const cRes = await fetch('/api/conversations', { headers: authHeaders() });
+              if (cRes.ok) { const { conversations: convs } = await cRes.json(); setConversations(convs); }
+            } catch {}
+          }
 
           const articles = (data.articles || []).map(a => {
             const parts = (a.code || '').split('—');
@@ -723,6 +847,7 @@
             risk: data.risque_niveau || 3,
             probability: data.probabilite,
             delai: data.delai_legal,
+            sanctions: data.sanctions || null,
             articles,
             actions: data.actions_gratuites || [],
             premium: data.demarche_disponible,
@@ -753,7 +878,7 @@
           {sidebarOpen && (
             <aside style={{ width: 260, flexShrink: 0, background: 'var(--bg-panel)', borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <div style={{ padding: 12 }}>
-                <button onClick={() => { setMessages([]); setConvTitle(null); }}
+                <button onClick={newConversation}
                   style={{ width: '100%', padding: '8px 16px', background: '#5e6ad2', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                   onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
                   onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
@@ -762,28 +887,40 @@
                 </button>
               </div>
 
-              {/* Conv list — only shows once user has sent a message */}
+              {/* Conv list — loaded from DB */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
-                {convTitle && (
-                  <>
-                    <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 8px 4px', fontFeatureSettings: '"cv01","ss03"' }}>Récent</div>
-                    <div style={{ padding: '9px 10px', borderRadius: 6, background: 'var(--bg-surface)', borderLeft: '2px solid #5e6ad2', marginBottom: 2 }}>
-                      <div style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{convTitle}</div>
-                    </div>
-                  </>
+                {conversations.length > 0 && (
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 8px 4px', fontFeatureSettings: '"cv01","ss03"' }}>Récent</div>
                 )}
+                {conversations.map(c => (
+                  <div key={c.id} onClick={() => loadConversation(c.id)}
+                    style={{
+                      padding: '9px 10px', borderRadius: 6, marginBottom: 2, cursor: 'pointer',
+                      background: c.id === convId ? 'var(--bg-surface)' : 'transparent',
+                      borderLeft: c.id === convId ? '2px solid #5e6ad2' : '2px solid transparent',
+                    }}
+                    onMouseEnter={e => { if (c.id !== convId) e.currentTarget.style.background = 'var(--bg-surface)'; }}
+                    onMouseLeave={e => { if (c.id !== convId) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <div style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.title || 'Sans titre'}</div>
+                  </div>
+                ))}
               </div>
 
               {/* User area */}
               <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#5e6ad2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 510, color: '#fff' }}>J</span>
+                  <span style={{ fontSize: 13, fontWeight: 510, color: '#fff' }}>{(user?.email || '?')[0].toUpperCase()}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>Jean Dupont</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>Plan Gratuit</div>
+                  <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email || '—'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>Plan {user?.plan === 'pro' ? 'Pro' : 'Gratuit'}</div>
                 </div>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16 }}>⚙</button>
+                <button onClick={logout} title="Se déconnecter"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, padding: 4 }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                >⏻</button>
               </div>
             </aside>
           )}
@@ -880,7 +1017,7 @@
 
     const App = () => {
       const [page, setPage] = useState('landing');
-      const [theme, setTheme] = useState('light');
+      const [theme, setTheme] = useState('dark');
 
       const toggleTheme = () => {
         const next = theme === 'light' ? 'dark' : 'light';
