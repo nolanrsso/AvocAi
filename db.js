@@ -10,7 +10,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     email         TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT NOT NULL DEFAULT '',
     plan          TEXT NOT NULL DEFAULT 'free',
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -32,9 +32,22 @@ db.exec(`
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS daily_requests (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    date    TEXT NOT NULL,
+    count   INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, date)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id);
   CREATE INDEX IF NOT EXISTS idx_msg_conv  ON messages(conversation_id);
+  CREATE INDEX IF NOT EXISTS idx_daily_req ON daily_requests(user_id, date);
 `);
+
+// Migration : ajouter google_id sur une DB existante (sans IF NOT EXISTS)
+try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT'); } catch {}
 
 console.log('✓ Base de données initialisée (avocai.db)');
 

@@ -6,6 +6,7 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const db = require('./db');
 
 const app = express();
@@ -20,12 +21,34 @@ if (!JWT_SECRET) {
 }
 const JWT_EXPIRES = '7d';
 
+// Google OAuth client
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID     || null;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || null;
+const APP_URL              = process.env.APP_URL || 'http://localhost:3000';
+const GOOGLE_REDIRECT_URI  = `${APP_URL}/api/auth/google/callback`;
+
+const googleClient = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
+  ? new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)
+  : null;
+
+// ── Quota config ────────────────────────────────────────
+const QUOTA_LIMITS = { free: 3, pro: 150 };
+
+function todayUTC() {
+  return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+}
+
 // ── Pages ───────────────────────────────────────────────
 app.get('/',         (req, res) => res.sendFile(path.join(__dirname, 'AvocAI.html')));
 app.get('/login',    (req, res) => res.sendFile(path.join(__dirname, 'login.html')));
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'register.html')));
 app.get('/success',  (req, res) => res.sendFile(path.join(__dirname, 'success.html')));
 app.get('/cancel',   (req, res) => res.sendFile(path.join(__dirname, 'cancel.html')));
+
+// ── Config publique (Google Client ID) ─────────────────
+app.get('/api/config', (req, res) => {
+  res.json({ googleClientId: GOOGLE_CLIENT_ID || null });
+});
 
 // ── Middleware JWT ──────────────────────────────────────
 function requireAuth(req, res, next) {
@@ -38,6 +61,39 @@ function requireAuth(req, res, next) {
   } catch {
     return res.status(401).json({ error: 'Token invalide ou expiré.' });
   }
+}
+
+// ── Middleware Quota ────────────────────────────────────
+function checkQuota(req, res, next) {
+  const userId = req.user.id;
+  const userRecord = db.prepare('SELECT plan FROM users WHERE id = ?').get(userId);
+  const plan = userRecord?.plan || 'free';
+  const limit = QUOTA_LIMITS[plan] ?? QUOTA_LIMITS.free;
+  const today = todayUTC();
+
+  // Upsert : crée la ligne si elle n'existe pas
+  db.prepare(
+    'INSERT OR IGNORE INTO daily_requests (user_id, date, count) VALUES (?, ?, 0)'
+  ).run(userId, today);
+
+  const record = db.prepare(
+    'SELECT count FROM daily_requests WHERE user_id = ? AND date = ?'
+  ).get(userId, today);
+
+  if (record.count >= limit) {
+    return res.status(429).json({
+      error: `Quota journalier atteint. Votre plan ${plan} autorise ${limit} analyse${limit > 1 ? 's' : ''}/jour.`,
+      quota: { used: record.count, limit, plan, reset: 'minuit UTC' },
+    });
+  }
+
+  // Incrémenter le compteur
+  db.prepare(
+    'UPDATE daily_requests SET count = count + 1 WHERE user_id = ? AND date = ?'
+  ).run(userId, today);
+
+  req.quotaInfo = { used: record.count + 1, limit, plan };
+  next();
 }
 
 // ── Auth: Register ──────────────────────────────────────
@@ -72,6 +128,11 @@ app.post('/api/auth/login', async (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(lower);
   if (!user) return res.status(401).json({ error: 'Identifiants invalides.' });
 
+  // Compte Google sans mot de passe
+  if (!user.password_hash) {
+    return res.status(401).json({ error: 'Ce compte utilise la connexion Google.' });
+  }
+
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) return res.status(401).json({ error: 'Identifiants invalides.' });
 
@@ -79,11 +140,117 @@ app.post('/api/auth/login', async (req, res) => {
   res.json({ token, user: { id: user.id, email: user.email, plan: user.plan } });
 });
 
+// ── Auth: Google — démarrage du flow OAuth ─────────────
+app.get('/api/auth/google/start', (req, res) => {
+  if (!googleClient) {
+    return res.redirect('/login?error=google_not_configured');
+  }
+  const url = googleClient.generateAuthUrl({
+    access_type: 'online',
+    scope: ['email', 'profile'],
+    prompt: 'select_account',
+  });
+  res.redirect(url);
+});
+
+// ── Auth: Google — callback après validation ────────────
+app.get('/api/auth/google/callback', async (req, res) => {
+  const { code, error } = req.query;
+
+  if (error || !code) {
+    return res.redirect('/login?error=google_cancelled');
+  }
+
+  try {
+    // Échange le code contre des tokens
+    const { tokens } = await googleClient.getToken(code);
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { sub: googleId, email } = payload;
+    const lower = email.toLowerCase().trim();
+
+    // 1. Cherche par google_id
+    let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId);
+
+    // 2. Cherche par email (liaison de compte)
+    if (!user) {
+      user = db.prepare('SELECT * FROM users WHERE email = ?').get(lower);
+      if (user) {
+        db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(googleId, user.id);
+      }
+    }
+
+    // 3. Création d'un nouveau compte
+    if (!user) {
+      const r = db.prepare(
+        "INSERT INTO users (email, password_hash, google_id) VALUES (?, '', ?)"
+      ).run(lower, googleId);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(r.lastInsertRowid));
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const userData = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, plan: user.plan }));
+
+    // Redirige vers l'app avec le token en query param (récupéré côté frontend)
+    res.redirect(`/?auth_token=${token}&auth_user=${userData}`);
+  } catch (err) {
+    console.error('Google callback error:', err.message);
+    res.redirect('/login?error=google_failed');
+  }
+});
+
+// ── Auth: Google (legacy — token GIS direct) ───────────
+app.post('/api/auth/google', async (req, res) => {
+  if (!googleClient) {
+    return res.status(503).json({ error: 'Authentification Google non configurée.' });
+  }
+  const { credential } = req.body || {};
+  if (!credential) return res.status(400).json({ error: 'Token Google manquant.' });
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+    const { sub: googleId, email } = ticket.getPayload();
+    const lower = email.toLowerCase().trim();
+    let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId);
+    if (!user) {
+      user = db.prepare('SELECT * FROM users WHERE email = ?').get(lower);
+      if (user) db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(googleId, user.id);
+    }
+    if (!user) {
+      const r = db.prepare("INSERT INTO users (email, password_hash, google_id) VALUES (?, '', ?)").run(lower, googleId);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(r.lastInsertRowid));
+    }
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    res.json({ token, user: { id: user.id, email: user.email, plan: user.plan } });
+  } catch (err) {
+    console.error('Google auth error:', err.message);
+    res.status(401).json({ error: 'Token Google invalide ou expiré.' });
+  }
+});
+
 // ── Auth: Me ────────────────────────────────────────────
 app.get('/api/auth/me', requireAuth, (req, res) => {
   const user = db.prepare('SELECT id, email, plan FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.status(404).json({ error: 'Utilisateur introuvable.' });
   res.json({ user });
+});
+
+// ── Quota: Status ───────────────────────────────────────
+app.get('/api/quota/status', requireAuth, (req, res) => {
+  const userId = req.user.id;
+  const userRecord = db.prepare('SELECT plan FROM users WHERE id = ?').get(userId);
+  const plan = userRecord?.plan || 'free';
+  const limit = QUOTA_LIMITS[plan] ?? QUOTA_LIMITS.free;
+  const today = todayUTC();
+
+  const record = db.prepare(
+    'SELECT count FROM daily_requests WHERE user_id = ? AND date = ?'
+  ).get(userId, today);
+
+  const used = record?.count ?? 0;
+  res.json({ used, limit, plan, remaining: Math.max(0, limit - used) });
 });
 
 // ── Conversations ───────────────────────────────────────
@@ -115,9 +282,49 @@ app.delete('/api/conversations/:id', requireAuth, (req, res) => {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const SYSTEM_PROMPT = `Tu es AvocAI, un assistant juridique intelligent spécialisé dans le droit français et européen.
-Quand un utilisateur décrit une situation, tu dois TOUJOURS répondre avec cette structure JSON exacte :
+
+════════════════════════════════════════
+RÈGLE 1 — Message vague ou sans situation juridique
+════════════════════════════════════════
+Si le message ne décrit pas de situation juridique précise (ex : "je n'ai rien fait", "bonjour", phrase incomplète, hors-sujet), réponds avec :
+- resume : demande poliment plus de détails
+- risque_niveau : 1 | probabilite : "0%" | delai_legal : null
+- articles : [] | sanctions : { amende_max: null, prison_max: null }
+- actions_gratuites : ["Décrivez votre situation en détail pour obtenir une analyse précise"]
+- demarche_disponible : false
+
+════════════════════════════════════════
+RÈGLE 2 — Victime / porter plainte / contester
+════════════════════════════════════════
+Si l'utilisateur est victime, veut porter plainte, contester une procédure reçue par erreur, ou entamer une démarche contre quelqu'un :
+- contexte : "victime"
+- probabilite : "0%" (l'utilisateur ne risque rien, il est la victime)
+- sanctions : ce que risque LE COUPABLE / l'auteur des faits (pas la victime)
+- resume : explique la situation et si besoin pose UNE seule question courte pour affiner
+- delai_legal : délai pour porter plainte ou contester
+- demarche_disponible : true
+- demarche_titre / demarche_description : met en avant la rapidité avec AvocAI Pro (jusqu'à 10× plus rapide)
+
+════════════════════════════════════════
+RÈGLE 3 — Infraction commise (analyse standard)
+════════════════════════════════════════
+Si l'utilisateur décrit une infraction qu'il a commise :
+- contexte : "mis_en_cause"
+- Remplis probabilite, sanctions, risque_niveau normalement
+
+════════════════════════════════════════
+CALIBRATION probabilite
+════════════════════════════════════════
+- Situation anodine / victime : "0%"
+- Infractions mineures sans victime : 2%–15%
+- Infractions moyennes avec victime / flagrant délit : 20%–50%
+- Crimes / délits graves : 60%–85%
+- Homicide, viol, crime organisé : 90%–99%
+
+Quand un utilisateur décrit une situation juridique concrète, tu dois répondre avec cette structure JSON exacte :
 
 {
+  "contexte": "mis_en_cause",
   "resume": "Résumé de la situation en 1-2 phrases",
   "risque_niveau": 3,
   "risque_label": "Modéré",
@@ -143,14 +350,12 @@ Quand un utilisateur décrit une situation, tu dois TOUJOURS répondre avec cett
   "demarche_description": "Nous vous guidons pas à pas..."
 }
 
-risque_niveau va de 1 (très faible) à 5 (critique).
-probabilite : exprime la probabilité d'être effectivement poursuivi en justice sous forme de pourcentage (ex: "8%", "23%"). Reste réaliste et plutôt bas (la plupart des infractions mineures ont moins de 20% de chance de poursuite).
-sanctions.amende_max : montant maximum de l'amende encourue (ex: "3 750 €"), ou null si aucune amende.
-sanctions.prison_max : peine maximale de prison encourue (ex: "6 mois"), ou null si aucune peine d'emprisonnement.
-demarche_disponible est true seulement si une démarche officielle concrète est possible (contester une amende, rédiger un courrier officiel, remplir un formulaire, etc.).
+sanctions.amende_max : montant maximum de l'amende encourue, ou null.
+sanctions.prison_max : peine maximale de prison, ou null.
+demarche_disponible : true seulement si une démarche officielle concrète est possible.
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans balises \`\`\`.`;
 
-// ── POST /api/chat (auth requise + persistance) ─────────
+// ── POST /api/chat (auth + quota + persistance) ─────────
 app.post('/api/chat', requireAuth, async (req, res) => {
   const { message, conversation_id } = req.body || {};
   if (!message || typeof message !== 'string' || !message.trim()) {
@@ -168,9 +373,27 @@ app.post('/api/chat', requireAuth, async (req, res) => {
     convId = Number(r.lastInsertRowid);
   }
 
+  // Chargement de l'historique AVANT d'insérer le nouveau message
+  const history = db.prepare(
+    'SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id ASC'
+  ).all(convId);
+
   // Sauvegarde du message utilisateur
   db.prepare('INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)')
     .run(convId, 'user', JSON.stringify({ text: message.trim() }));
+
+  // Construction des messages pour OpenAI (historique + nouveau message)
+  const historyMessages = history.map(m => {
+    try {
+      const parsed = JSON.parse(m.content);
+      const content = m.role === 'user'
+        ? (parsed.text || m.content)
+        : JSON.stringify(parsed);
+      return { role: m.role === 'ai' ? 'assistant' : 'user', content };
+    } catch {
+      return { role: m.role === 'ai' ? 'assistant' : 'user', content: m.content };
+    }
+  });
 
   try {
     const response = await openai.chat.completions.create({
@@ -178,6 +401,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
       max_tokens: 1024,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
+        ...historyMessages,
         { role: 'user', content: message.trim() },
       ],
     });
@@ -196,7 +420,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
     db.prepare('INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)')
       .run(convId, 'ai', JSON.stringify(data));
 
-    res.json({ ...data, conversation_id: convId });
+    res.json({ ...data, conversation_id: convId, quota: req.quotaInfo });
   } catch (err) {
     console.error('OpenAI API error:', err.status, err.message);
     const status = err.status || 500;
@@ -237,4 +461,5 @@ app.post('/api/create-checkout', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`\n✓ AvocAI server running at http://localhost:${PORT}\n`);
+  if (!GOOGLE_CLIENT_ID) console.warn('⚠ GOOGLE_CLIENT_ID non défini — auth Google désactivée');
 });
