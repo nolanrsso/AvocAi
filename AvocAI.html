@@ -782,14 +782,40 @@
         })();
       }, []);
 
+      const transformAiMessage = (m) => {
+        const articles = (m.articles || []).map(a => {
+          const parts = (a.code || '').split('—');
+          return {
+            code: parts[0]?.trim() || a.code,
+            title: parts[1]?.trim() || '',
+            excerpt: a.texte,
+            link: a.lien,
+          };
+        });
+        return {
+          role: 'ai',
+          summary: m.resume,
+          risk: m.risque_niveau || 3,
+          probability: m.probabilite,
+          delai: m.delai_legal,
+          sanctions: m.sanctions || null,
+          articles,
+          actions: m.actions_gratuites || [],
+          premium: m.demarche_disponible,
+          premiumTitle: m.demarche_titre,
+          premiumBody: m.demarche_description,
+        };
+      };
+
       const loadConversation = async (id) => {
         try {
           const res = await fetch('/api/conversations/' + id, { headers: authHeaders() });
           if (!res.ok) return;
           const { conversation, messages: msgs } = await res.json();
+          const transformed = msgs.map(m => m.role === 'ai' ? transformAiMessage(m) : m);
           setConvId(conversation.id);
           setConvTitle(conversation.title);
-          setMessages(msgs);
+          setMessages(transformed);
         } catch {}
       };
 

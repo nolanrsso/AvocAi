@@ -4,7 +4,7 @@ const OpenAI = require('openai');
 const Stripe = require('stripe');
 const cors = require('cors');
 const path = require('path');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
 
@@ -54,8 +54,9 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const hash = await bcrypt.hash(password, 10);
     const r = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(lower, hash);
-    const token = jwt.sign({ id: r.lastInsertRowid, email: lower }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.json({ token, user: { id: r.lastInsertRowid, email: lower, plan: 'free' } });
+    const userId = Number(r.lastInsertRowid);
+    const token = jwt.sign({ id: userId, email: lower }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    res.json({ token, user: { id: userId, email: lower, plan: 'free' } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Erreur lors de la création du compte.' });
@@ -164,7 +165,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
   } else {
     const title = message.trim().slice(0, 60);
     const r = db.prepare('INSERT INTO conversations (user_id, title) VALUES (?, ?)').run(req.user.id, title);
-    convId = r.lastInsertRowid;
+    convId = Number(r.lastInsertRowid);
   }
 
   // Sauvegarde du message utilisateur
