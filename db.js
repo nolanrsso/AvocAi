@@ -41,13 +41,23 @@ db.exec(`
     UNIQUE(user_id, date)
   );
 
+  CREATE TABLE IF NOT EXISTS guest_requests (
+    ip   TEXT NOT NULL,
+    date TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (ip, date)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id);
   CREATE INDEX IF NOT EXISTS idx_msg_conv  ON messages(conversation_id);
   CREATE INDEX IF NOT EXISTS idx_daily_req ON daily_requests(user_id, date);
 `);
 
-// Migration : ajouter google_id sur une DB existante (sans IF NOT EXISTS)
+// Migrations
 try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN first_name TEXT'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN last_name TEXT'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN birth_date TEXT'); } catch {}
 
 console.log('✓ Base de données initialisée (avocai.db)');
 

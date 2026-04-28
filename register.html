@@ -39,6 +39,8 @@
     h1 { font-size: 28px; font-weight: 510; letter-spacing: -0.5px; margin-bottom: 8px; text-align: center; }
     .subtitle { font-size: 15px; color: var(--text-muted); text-align: center; margin-bottom: 28px; }
     form { display: flex; flex-direction: column; gap: 14px; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; min-width: 0; }
     label { font-size: 13px; font-weight: 510; color: var(--text-muted); margin-bottom: 6px; display: block; }
     input {
       width: 100%; padding: 11px 14px;
@@ -129,6 +131,20 @@
     <div class="divider"><span>ou créer un compte avec email</span></div>
 
     <form id="form">
+      <div class="row">
+        <div>
+          <label for="firstName">Prénom</label>
+          <input type="text" id="firstName" placeholder="Jean" required />
+        </div>
+        <div>
+          <label for="lastName">Nom</label>
+          <input type="text" id="lastName" placeholder="Dupont" required />
+        </div>
+      </div>
+      <div>
+        <label for="birthDate">Date de naissance</label>
+        <input type="text" id="birthDate" placeholder="JJ/MM/AAAA" maxlength="10" required inputmode="numeric" />
+      </div>
       <div>
         <label for="email">Email</label>
         <input type="email" id="email" placeholder="vous@exemple.com" required autofocus />
@@ -166,6 +182,14 @@
     const form = document.getElementById('form');
     const submitBtn = document.getElementById('submit');
 
+    // Auto-format DD/MM/YYYY
+    document.getElementById('birthDate').addEventListener('input', (e) => {
+      let v = e.target.value.replace(/\D/g, '').slice(0, 8);
+      if (v.length >= 5) v = v.slice(0,2) + '/' + v.slice(2,4) + '/' + v.slice(4);
+      else if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
+      e.target.value = v;
+    });
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       errorEl.classList.remove('show');
@@ -176,6 +200,9 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            firstName: document.getElementById('firstName').value,
+            lastName: document.getElementById('lastName').value,
+            birthDate: document.getElementById('birthDate').value,
             email: document.getElementById('email').value,
             password: document.getElementById('password').value,
           }),

@@ -32,7 +32,7 @@ const googleClient = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
   : null;
 
 // ── Quota config ────────────────────────────────────────
-const QUOTA_LIMITS = { free: 3, pro: 150 };
+const QUOTA_LIMITS = { free: 5, pro: 150 };
 
 function todayUTC() {
   return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
@@ -98,8 +98,11 @@ function checkQuota(req, res, next) {
 
 // ── Auth: Register ──────────────────────────────────────
 app.post('/api/auth/register', async (req, res) => {
-  const { email, password } = req.body || {};
+  const { email, password, firstName, lastName, birthDate } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis.' });
+  if (!firstName || !lastName) return res.status(400).json({ error: 'Prénom et nom requis.' });
+  if (!birthDate) return res.status(400).json({ error: 'Date de naissance requise.' });
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(birthDate)) return res.status(400).json({ error: 'Date de naissance invalide (format JJ/MM/AAAA).' });
   if (password.length < 6)   return res.status(400).json({ error: 'Mot de passe trop court (6 caractères minimum).' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Email invalide.' });
 
@@ -109,10 +112,10 @@ app.post('/api/auth/register', async (req, res) => {
 
   try {
     const hash = await bcrypt.hash(password, 10);
-    const r = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(lower, hash);
+    const r = db.prepare('INSERT INTO users (email, password_hash, first_name, last_name, birth_date) VALUES (?, ?, ?, ?, ?)').run(lower, hash, firstName.trim(), lastName.trim(), birthDate);
     const userId = Number(r.lastInsertRowid);
     const token = jwt.sign({ id: userId, email: lower }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.json({ token, user: { id: userId, email: lower, plan: 'free' } });
+    res.json({ token, user: { id: userId, email: lower, plan: 'free', firstName: firstName.trim(), lastName: lastName.trim() } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Erreur lors de la création du compte.' });
@@ -147,7 +150,7 @@ app.get('/api/auth/google/start', (req, res) => {
   }
   const url = googleClient.generateAuthUrl({
     access_type: 'online',
-    scope: ['email', 'profile'],
+    scope: ['email', 'profile', 'https://www.googleapis.com/auth/user.birthday.read'],
     prompt: 'select_account',
   });
   res.redirect(url);
@@ -169,8 +172,22 @@ app.get('/api/auth/google/callback', async (req, res) => {
       audience: GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
-    const { sub: googleId, email } = payload;
+    const { sub: googleId, email, given_name, family_name } = payload;
     const lower = email.toLowerCase().trim();
+
+    // Récupère la date de naissance via l'API People
+    let birthDate = null;
+    try {
+      const peopleRes = await fetch(
+        `https://people.googleapis.com/v1/people/me?personFields=birthdays`,
+        { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+      );
+      const peopleData = await peopleRes.json();
+      const bday = peopleData.birthdays?.[0]?.date;
+      if (bday?.day && bday?.month && bday?.year) {
+        birthDate = `${String(bday.day).padStart(2,'0')}/${String(bday.month).padStart(2,'0')}/${bday.year}`;
+      }
+    } catch {}
 
     // 1. Cherche par google_id
     let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId);
@@ -179,20 +196,25 @@ app.get('/api/auth/google/callback', async (req, res) => {
     if (!user) {
       user = db.prepare('SELECT * FROM users WHERE email = ?').get(lower);
       if (user) {
-        db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(googleId, user.id);
+        db.prepare('UPDATE users SET google_id = ?, first_name = COALESCE(first_name, ?), last_name = COALESCE(last_name, ?), birth_date = COALESCE(birth_date, ?) WHERE id = ?')
+          .run(googleId, given_name || null, family_name || null, birthDate, user.id);
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
       }
     }
 
     // 3. Création d'un nouveau compte
     if (!user) {
       const r = db.prepare(
-        "INSERT INTO users (email, password_hash, google_id) VALUES (?, '', ?)"
-      ).run(lower, googleId);
+        "INSERT INTO users (email, password_hash, google_id, first_name, last_name, birth_date) VALUES (?, '', ?, ?, ?, ?)"
+      ).run(lower, googleId, given_name || null, family_name || null, birthDate);
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(r.lastInsertRowid));
     }
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    const userData = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, plan: user.plan }));
+    const userData = encodeURIComponent(JSON.stringify({
+      id: user.id, email: user.email, plan: user.plan,
+      firstName: user.first_name, lastName: user.last_name,
+    }));
 
     // Redirige vers l'app avec le token en query param (récupéré côté frontend)
     res.redirect(`/?auth_token=${token}&auth_user=${userData}`);
@@ -211,19 +233,23 @@ app.post('/api/auth/google', async (req, res) => {
   if (!credential) return res.status(400).json({ error: 'Token Google manquant.' });
   try {
     const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
-    const { sub: googleId, email } = ticket.getPayload();
+    const { sub: googleId, email, given_name, family_name } = ticket.getPayload();
     const lower = email.toLowerCase().trim();
     let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId);
     if (!user) {
       user = db.prepare('SELECT * FROM users WHERE email = ?').get(lower);
-      if (user) db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(googleId, user.id);
+      if (user) {
+        db.prepare('UPDATE users SET google_id = ?, first_name = COALESCE(first_name, ?), last_name = COALESCE(last_name, ?) WHERE id = ?')
+          .run(googleId, given_name || null, family_name || null, user.id);
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+      }
     }
     if (!user) {
-      const r = db.prepare("INSERT INTO users (email, password_hash, google_id) VALUES (?, '', ?)").run(lower, googleId);
+      const r = db.prepare("INSERT INTO users (email, password_hash, google_id, first_name, last_name) VALUES (?, '', ?, ?, ?)").run(lower, googleId, given_name || null, family_name || null);
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(r.lastInsertRowid));
     }
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.json({ token, user: { id: user.id, email: user.email, plan: user.plan } });
+    res.json({ token, user: { id: user.id, email: user.email, plan: user.plan, firstName: user.first_name, lastName: user.last_name } });
   } catch (err) {
     console.error('Google auth error:', err.message);
     res.status(401).json({ error: 'Token Google invalide ou expiré.' });
@@ -232,9 +258,9 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ── Auth: Me ────────────────────────────────────────────
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  const user = db.prepare('SELECT id, email, plan FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT id, email, plan, first_name, last_name FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.status(404).json({ error: 'Utilisateur introuvable.' });
-  res.json({ user });
+  res.json({ user: { ...user, firstName: user.first_name, lastName: user.last_name } });
 });
 
 // ── Quota: Status ───────────────────────────────────────
@@ -429,6 +455,50 @@ app.post('/api/chat', requireAuth, async (req, res) => {
         ? 'Clé API OpenAI invalide ou manquante.'
         : `Erreur OpenAI (${status}): ${err.message || 'Veuillez réessayer.'}`,
     });
+  }
+});
+
+// ── POST /api/chat/guest (1 requête max par IP par jour) ─
+app.post('/api/chat/guest', async (req, res) => {
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const today = todayUTC();
+
+  db.prepare('INSERT OR IGNORE INTO guest_requests (ip, date, count) VALUES (?, ?, 0)').run(ip, today);
+  const record = db.prepare('SELECT count FROM guest_requests WHERE ip = ? AND date = ?').get(ip, today);
+
+  if (record && record.count >= 9999) {
+    return res.status(429).json({
+      error: 'Vous avez utilisé votre analyse gratuite. Créez un compte pour continuer.',
+      exhausted: true,
+    });
+  }
+
+  const { message } = req.body || {};
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Le champ "message" est requis.' });
+  }
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 1024,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: message.trim() },
+      ],
+    });
+
+    const raw = response.choices[0]?.message?.content || '';
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+    let data;
+    try { data = JSON.parse(cleaned); }
+    catch { return res.status(500).json({ error: 'Réponse IA invalide. Veuillez réessayer.' }); }
+
+    db.prepare('UPDATE guest_requests SET count = count + 1 WHERE ip = ? AND date = ?').run(ip, today);
+    res.json({ ...data, guest: true });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ error: `Erreur OpenAI (${status}): ${err.message || 'Veuillez réessayer.'}` });
   }
 });
 

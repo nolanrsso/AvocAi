@@ -268,7 +268,7 @@
 
     /* ── Navbar ─────────────────────────────────────────── */
 
-    const Navbar = ({ page, setPage, theme, toggleTheme }) => (
+    const Navbar = ({ page, setPage, theme, toggleTheme, onNavSection }) => (
       <nav style={{
         position: 'sticky', top: 0, zIndex: 100,
         height: 56, background: 'var(--bg-panel)',
@@ -286,10 +286,22 @@
           <span style={{ fontSize: 16, fontWeight: 590, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"', letterSpacing: '-0.2px' }}>AvocAI</span>
         </div>
 
-        {/* Center nav — hidden on mobile via CSS */}
+        {/* Center nav */}
         <div className="nav-center" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 32, alignItems: 'center' }}>
+          <a onClick={e => { e.preventDefault(); setPage('chat'); }} href="#"
+            style={{ fontSize: 13, fontWeight: 590, textDecoration: 'none', fontFeatureSettings: '"cv01","ss03"', cursor: 'pointer', color: page === 'chat' ? '#7170ff' : 'var(--text-primary)', borderBottom: page === 'chat' ? '1px solid #7170ff' : 'none', paddingBottom: page === 'chat' ? 2 : 0 }}
+            onMouseEnter={e => e.currentTarget.style.color = '#7170ff'}
+            onMouseLeave={e => e.currentTarget.style.color = page === 'chat' ? '#7170ff' : 'var(--text-primary)'}
+          >Chat</a>
           {[['Fonctionnalités', 'fonctionnalites'], ['Tarifs', 'tarifs'], ['FAQ', 'faq']].map(([label, id]) => (
-            <a key={id} href={`#${id}`} onClick={e => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }}
+            <a key={id} href={`#${id}`} onClick={e => {
+              e.preventDefault();
+              if (page === 'landing') {
+                document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                onNavSection(id);
+              }
+            }}
               style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-body)', textDecoration: 'none', fontFeatureSettings: '"cv01","ss03"' }}
               onMouseEnter={e => e.target.style.color = 'var(--text-primary)'}
               onMouseLeave={e => e.target.style.color = 'var(--text-body)'}
@@ -297,44 +309,34 @@
           ))}
         </div>
 
-        {/* Right buttons */}
+        {/* Right buttons — toujours les mêmes */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 'auto' }}>
-          {page === 'landing' ? (
-            getToken() ? (
-              /* ── Connecté ── */
-              <>
-                <button className="nav-login" onClick={logout} style={{
-                  padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
-                  background: 'var(--btn-bg)', cursor: 'pointer',
-                  fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
-                }}>Se déconnecter</button>
-                <button className="nav-try-btn" onClick={scrollToPricing}
-                  style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-                >Passer à Pro</button>
-              </>
-            ) : (
-              /* ── Non connecté ── */
-              <>
-                <button className="nav-login" onClick={() => window.location.href = '/login'} style={{
-                  padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
-                  background: 'var(--btn-bg)', cursor: 'pointer',
-                  fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
-                }}>Se connecter</button>
-                <button className="nav-try-btn" onClick={() => window.location.href = '/register'}
-                  style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-                >Essayer gratuitement</button>
-              </>
-            )
+          {getToken() ? (
+            <>
+              <button className="nav-login" onClick={logout} style={{
+                padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
+                background: 'var(--btn-bg)', cursor: 'pointer',
+                fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
+              }}>Se déconnecter</button>
+              <button className="nav-try-btn" onClick={scrollToPricing}
+                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
+                onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+              >Passer à Pro</button>
+            </>
           ) : (
-            <button onClick={() => setPage('landing')} style={{
-              padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
-              background: 'var(--btn-bg)', color: 'var(--text-body)', cursor: 'pointer',
-              fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"',
-            }}>Retour au site</button>
+            <>
+              <button className="nav-login" onClick={() => window.location.href = '/login'} style={{
+                padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
+                background: 'var(--btn-bg)', cursor: 'pointer',
+                fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
+              }}>Se connecter</button>
+              <button className="nav-try-btn" onClick={() => window.location.href = '/register'}
+                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
+                onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+              >Essayer gratuitement</button>
+            </>
           )}
         </div>
 
@@ -434,41 +436,114 @@
 
     /* ── Landing: Hero ──────────────────────────────────── */
 
-    const Hero = ({ setPage }) => (
-      <section style={{ background: 'var(--bg-page)', padding: '72px 24px 60px', textAlign: 'center' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: 9999, border: '1px solid rgba(94,106,210,0.35)', marginBottom: 32, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: '#5e6ad2' }}>
-            Gratuit — Analysez votre situation maintenant
+    const Hero = ({ setPage, onHeroSend }) => {
+      const [heroInput, setHeroInput] = React.useState('');
+      const [showLoginModal, setShowLoginModal] = React.useState(false);
+      const inputRef = React.useRef(null);
+
+      const handleSubmit = () => {
+        const text = heroInput.trim();
+        if (!text) return;
+        if (!getToken()) {
+          sessionStorage.setItem('avocai_pending_message', text);
+          setPage('chat');
+          return;
+        }
+        onHeroSend(text);
+        setPage('chat');
+      };
+
+      const handleKey = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          handleSubmit();
+        }
+      };
+
+      return (
+        <section style={{ background: 'var(--bg-page)', padding: '72px 24px 60px', textAlign: 'center' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+            <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: 9999, border: '1px solid rgba(94,106,210,0.35)', marginBottom: 32, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: '#5e6ad2' }}>
+              Gratuit — Analysez votre situation maintenant
+            </div>
+            <h1 style={{ fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1.05, letterSpacing: '-1.056px', margin: '0 0 20px', fontFeatureSettings: '"cv01","ss03"', fontSize: 55 }}>
+              Comprenez ce que vous risquez<br />Défendez-vous mieux.
+            </h1>
+            <p style={{ fontWeight: 400, color: 'var(--text-muted)', lineHeight: 1.6, letterSpacing: '-0.165px', maxWidth: 560, margin: '0 auto 36px', fontFeatureSettings: '"cv01","ss03"', fontSize: 17 }}>
+              Décrivez n'importe quelle situation à AvocAI. Il analyse vos risques juridiques, évalue vos chances d'être contrôlé et vous explique les articles de loi qui s'appliquent gratuitement.
+            </p>
+
+            {/* Hero chat input */}
+            <div style={{ maxWidth: 640, margin: '0 auto 16px', position: 'relative' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: '#16171a', border: '1px solid rgba(94,106,210,0.3)',
+                borderRadius: 9999, padding: '10px 16px',
+                boxShadow: '0 0 0 4px rgba(94,106,210,0.07)',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+              }}
+                onFocus={() => {}}
+              >
+                {/* Sparkle icon */}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                  <path d="M12 2L13.5 9.5L21 11L13.5 12.5L12 20L10.5 12.5L3 11L10.5 9.5L12 2Z" fill="#7170ff" />
+                </svg>
+
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={heroInput}
+                  onChange={e => { setHeroInput(e.target.value); }}
+                  onKeyDown={handleKey}
+                  placeholder="Expliquez moi votre situation…"
+                  style={{
+                    flex: 1, background: 'none', border: 'none', outline: 'none',
+                    fontSize: 15, color: '#f7f8f8', fontFeatureSettings: '"cv01","ss03"',
+                    caretColor: '#7170ff',
+                  }}
+                />
+
+                <button
+                  onClick={handleSubmit}
+                  disabled={!heroInput.trim()}
+                  style={{
+                    width: 32, height: 32, borderRadius: '50%', border: 'none', flexShrink: 0,
+                    background: heroInput.trim() ? '#5e6ad2' : 'rgba(255,255,255,0.08)',
+                    color: heroInput.trim() ? '#fff' : 'rgba(255,255,255,0.3)',
+                    cursor: heroInput.trim() ? 'pointer' : 'default',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { if (heroInput.trim()) e.currentTarget.style.background = '#828fff'; }}
+                  onMouseLeave={e => { if (heroInput.trim()) e.currentTarget.style.background = '#5e6ad2'; }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+
+              {showLoginModal && (
+                <LoginModal
+                  onClose={() => setShowLoginModal(false)}
+                  onContinueAsGuest={() => {
+                    localStorage.setItem('avocai_guest_allowed', '1');
+                    setShowLoginModal(false);
+                    onHeroSend(heroInput);
+                    setPage('chat');
+                  }}
+                />
+              )}
+            </div>
+
+            <p style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"', marginBottom: 48 }}>
+              Déjà +15 000 situations analysées · Droit français &amp; européen
+            </p>
+            <div id="demo-section"><DemoCard setPage={setPage} /></div>
           </div>
-          <h1 style={{ fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1.05, letterSpacing: '-1.056px', margin: '0 0 20px', fontFeatureSettings: '"cv01","ss03"', fontSize: 55 }}>
-            Comprenez ce que vous risquez<br />Défendez-vous mieux.
-          </h1>
-          <p style={{ fontWeight: 400, color: 'var(--text-muted)', lineHeight: 1.6, letterSpacing: '-0.165px', maxWidth: 560, margin: '0 auto 36px', fontFeatureSettings: '"cv01","ss03"', fontSize: 17 }}>
-            Décrivez n'importe quelle situation à AvocAI. Il analyse vos risques juridiques, évalue vos chances d'être contrôlé et vous explique les articles de loi qui s'appliquent gratuitement.
-          </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
-            <button onClick={() => setPage('chat')}
-              style={{ padding: '10px 24px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 18, width: 240 }}
-              onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
-              onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-            >Analyser ma situation</button>
-            <button onClick={() => {
-              const el = document.getElementById('demo-section');
-              if (el) {
-                const top = el.getBoundingClientRect().top + window.scrollY - 60;
-                window.scrollTo({ top, behavior: 'smooth' });
-              }
-            }} style={{ padding: '10px 24px', borderRadius: 6, border: '1px solid rgba(0,0,0,0.235)', background: 'var(--btn-bg)', color: 'var(--text-body)', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 19, width: 251 }}>
-              Voir comment ça marche
-            </button>
-          </div>
-          <p style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>
-            Déjà +15 000 situations analysées · Droit français &amp; européen
-          </p>
-          <div id="demo-section"><DemoCard setPage={setPage} /></div>
-        </div>
-      </section>
-    );
+        </section>
+      );
+    };
 
     /* ── Landing: HowItWorks ────────────────────────────── */
 
@@ -502,10 +577,25 @@
 
     const Pricing = ({ setPage }) => {
       const check = <span style={{ color: '#27a644', marginRight: 8 }}>✓</span>;
-      const features = {
-        free: ['3 analyses / jour', 'Analyse juridique', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite', 'Historique des 7 derniers jours'],
-        pro: ['+100 analyses / jour', 'Tout le plan gratuit', 'Aide au remplissage de démarches', 'Formulaires officiels pré-remplis', 'Lettres types générées par IA', 'Suivi de dossier pas à pas', 'Alertes délais légaux', 'Historique illimité'],
+      const freeFeatures = ['5 analyses / jour', 'Analyse juridique', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite', 'Historique des 7 derniers jours'];
+      const proFeatures  = ['100 analyses / jour', 'Analyse juridique', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite', 'Historique illimité'];
+      const proPlus      = ['Toutes les fonctionnalités du plan AvocAI Pro', 'Aide au remplissage de démarches', 'Formulaires officiels pré-remplis', 'Lettres types générées par IA', 'Suivi de dossier pas à pas', 'Alertes délais légaux'];
+
+      const userPlan = getStoredUser()?.plan || (getToken() ? 'free' : null);
+
+      const cardBase = {
+        flex: '1 1 280px', maxWidth: 340,
+        background: 'var(--btn-bg)', border: '1px solid var(--border-default)',
+        borderRadius: 8, padding: 32, textAlign: 'left',
+        display: 'flex', flexDirection: 'column',
       };
+
+      const CurrentBtn = () => (
+        <button disabled style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-subtle)', cursor: 'default', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>
+          Plan actuel
+        </button>
+      );
+
       return (
         <section id="tarifs" style={{ background: 'var(--bg-page)', padding: '80px 24px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
@@ -513,35 +603,63 @@
             <p style={{ fontSize: 18, color: 'var(--text-muted)', marginBottom: 48, fontFeatureSettings: '"cv01","ss03"' }}>
               Commencez gratuitement, passez à Pro quand vous en avez besoin.
             </p>
-            <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 800, margin: '0 auto' }}>
-              {/* Free */}
-              <div style={{ flex: '1 1 300px', maxWidth: 360, background: 'var(--btn-bg)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 32, textAlign: 'left' }}>
+            <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 1100, margin: '0 auto', alignItems: 'stretch' }}>
+
+              {/* ── Gratuit ── */}
+              <div style={cardBase}>
                 <div style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 8, fontFeatureSettings: '"cv01","ss03"' }}>Gratuit</div>
                 <div style={{ fontSize: 48, fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 24, fontFeatureSettings: '"cv01","ss03"' }}>0€</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                  {features.free.map(f => <div key={f} style={{ fontSize: 15, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>)}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28, flex: 1 }}>
+                  {freeFeatures.map(f => <div key={f} style={{ fontSize: 15, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>)}
                 </div>
-                <button onClick={() => setPage('chat')} style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: '1px solid var(--btn-border)', background: 'var(--btn-bg)', color: 'var(--text-body)', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>
-                  Commencer gratuitement
-                </button>
+                {userPlan === 'free' ? <CurrentBtn /> : (
+                  <button onClick={() => setPage('chat')} style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: '1px solid var(--btn-border)', background: 'var(--btn-bg)', color: 'var(--text-body)', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>
+                    Commencer gratuitement
+                  </button>
+                )}
               </div>
-              {/* Pro */}
-              <div style={{ flex: '1 1 300px', maxWidth: 360, background: 'var(--btn-bg)', border: '1px solid #5e6ad2', borderRadius: 8, padding: 32, textAlign: 'left', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: -12, right: 20, background: '#5e6ad2', color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>Le plus populaire</div>
+
+              {/* ── AvocAI Pro ── */}
+              <div style={{ ...cardBase, border: '1px solid var(--border-default)' }}>
                 <div style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>AvocAI Pro</div>
                 <div style={{ fontSize: 48, fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>
                   3€<span style={{ fontSize: 30, fontWeight: 590 }}>/semaine</span>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, fontFeatureSettings: '"cv01","ss03"' }}>ou 79€/an · Résiliable à tout moment</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                  {features.pro.map(f => <div key={f} style={{ fontSize: 15, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>)}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28, flex: 1 }}>
+                  {proFeatures.map(f => <div key={f} style={{ fontSize: 15, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>)}
                 </div>
-                <button onClick={handleProUpgrade}
-                  style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}
-                  onMouseEnter={e => e.target.style.background = '#828fff'}
-                  onMouseLeave={e => e.target.style.background = '#5e6ad2'}
-                >Passer à Pro</button>
+                {userPlan === 'pro' ? <CurrentBtn /> : (
+                  <button onClick={handleProUpgrade}
+                    style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}
+                    onMouseEnter={e => e.target.style.background = '#828fff'}
+                    onMouseLeave={e => e.target.style.background = '#5e6ad2'}
+                  >Passer à Pro</button>
+                )}
               </div>
+
+              {/* ── AvocAI Pro+ ── */}
+              <div style={{ ...cardBase, border: '1px solid #5e6ad2', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: -12, right: 20, background: '#5e6ad2', color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>Le plus populaire</div>
+                <div style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>AvocAI Pro <span style={{ color: '#7170ff' }}>+</span></div>
+                <div style={{ fontSize: 48, fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>
+                  4€<span style={{ fontSize: 30, fontWeight: 590 }}>/semaine</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, fontFeatureSettings: '"cv01","ss03"' }}>ou 99€/an · Résiliable à tout moment</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28, flex: 1 }}>
+                  {proPlus.map((f, i) => (
+                    <div key={f} style={{ fontSize: 15, color: i === 0 ? 'var(--text-primary)' : 'var(--text-body)', fontWeight: i === 0 ? 510 : 400, fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>
+                  ))}
+                </div>
+                {userPlan === 'proplus' ? <CurrentBtn /> : (
+                  <button onClick={handleProUpgrade}
+                    style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}
+                    onMouseEnter={e => e.target.style.background = '#828fff'}
+                    onMouseLeave={e => e.target.style.background = '#5e6ad2'}
+                  >Passer à Pro+</button>
+                )}
+              </div>
+
             </div>
           </div>
         </section>
@@ -641,9 +759,9 @@
       </footer>
     );
 
-    const LandingPage = ({ setPage }) => (
+    const LandingPage = ({ setPage, onHeroSend }) => (
       <div>
-        <Hero setPage={setPage} />
+        <Hero setPage={setPage} onHeroSend={onHeroSend} />
         <HowItWorks />
         <Pricing setPage={setPage} />
         <UseCases />
@@ -656,8 +774,11 @@
 
     const LoadingCard = () => (
       <div style={{ maxWidth: '88%' }}>
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-panel)' }}>
+        <div style={{
+          background: '#191a1b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden',
+          '--text-muted': '#8a8f98',
+        }}>
+          <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 6, background: '#0f1011' }}>
             <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
               <rect width="28" height="28" rx="4" fill="#5e6ad2" />
               <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
@@ -676,13 +797,28 @@
 
     const AIMessageCard = ({ msg }) => (
       <div style={{ maxWidth: '88%' }}>
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-panel)' }}>
-            <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
-              <rect width="28" height="28" rx="4" fill="#5e6ad2" />
-              <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
-            </svg>
-            <span style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.6, fontFeatureSettings: '"cv01","ss03"' }}>Analyse de situation</span>
+        <div style={{
+          background: '#191a1b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden',
+          '--bg-panel': '#0f1011',
+          '--bg-surface': '#191a1b',
+          '--bg-surface-elevated': '#28282c',
+          '--text-primary': '#f7f8f8',
+          '--text-body': '#d0d6e0',
+          '--text-muted': '#8a8f98',
+          '--text-subtle': '#62666d',
+          '--border-default': 'rgba(255,255,255,0.08)',
+          '--border-subtle': 'rgba(255,255,255,0.05)',
+          '--btn-bg': 'rgba(255,255,255,0.02)',
+        }}>
+          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-panel)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
+                <rect width="28" height="28" rx="4" fill="#5e6ad2" />
+                <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
+              </svg>
+              <span style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.6, fontFeatureSettings: '"cv01","ss03"' }}>Analyse de situation</span>
+            </div>
+            {msg.time && <span style={{ fontSize: 11, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>{msg.time}</span>}
           </div>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <p style={{ fontSize: 14, color: 'var(--text-body)', lineHeight: 1.6, margin: 0, fontFeatureSettings: '"cv01","ss03"' }}>{msg.summary}</p>
@@ -850,7 +986,7 @@
       </svg>
     );
 
-    const LoginModal = ({ onClose }) => {
+    const LoginModal = ({ onClose, onContinueAsGuest }) => {
 
       return (
         <div style={{
@@ -879,7 +1015,7 @@
             </h2>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 24, lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
               Créez un compte gratuit pour analyser vos situations juridiques.
-              <br /><strong style={{ color: 'var(--text-body)' }}>3 analyses offertes par jour.</strong>
+              <br /><strong style={{ color: 'var(--text-body)' }}>5 analyses offertes par jour.</strong>
             </p>
 
             {/* Bouton Google — redirect OAuth (aucun popup, fonctionne partout) */}
@@ -928,7 +1064,7 @@
               </button>
             </div>
 
-            <button onClick={onClose} style={{
+            <button onClick={onContinueAsGuest || onClose} style={{
               display: 'block', margin: '16px auto 0', background: 'none', border: 'none',
               fontSize: 13, color: 'var(--text-subtle)', cursor: 'pointer', fontFeatureSettings: '"cv01","ss03"',
             }}>Continuer sans compte</button>
@@ -939,8 +1075,17 @@
 
     /* ── Chat Interface ──────────────────────────────────── */
 
-    const ChatInterface = ({ setPage }) => {
-      const [messages, setMessages] = useState([]);
+    const ChatInterface = ({ setPage, heroMessage, onHeroMessageConsumed }) => {
+      const [messages, setMessages] = useState(() => {
+        const saved = sessionStorage.getItem('avocai_guest_session');
+        if (saved && getToken()) {
+          try {
+            sessionStorage.removeItem('avocai_guest_session');
+            return JSON.parse(saved);
+          } catch { return []; }
+        }
+        return [];
+      });
       const [input, setInput] = useState('');
       const [loading, setLoading] = useState(false);
       const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -952,7 +1097,9 @@
       const [isGuest, setIsGuest] = useState(!getToken());
       const [showLoginModal, setShowLoginModal] = useState(false);
       const [quota, setQuota] = useState(null);
+      const [guestExhausted, setGuestExhausted] = useState(() => !!localStorage.getItem('avocai_guest_exhausted'));
       const bottomRef = useRef(null);
+      const heroSentRef = useRef(false);
 
       // Auth check + initial conv load
       useEffect(() => {
@@ -1033,8 +1180,46 @@
         const msg = (text || input).trim();
         if (!msg || loading) return;
 
-        // Invité → afficher la modale de connexion
+        // Invité → 1 requête via endpoint guest
+        if (isGuest && !guestExhausted) {
+          setInput('');
+          if (!convTitle) setConvTitle(msg.length > 40 ? msg.slice(0, 40) + '…' : msg);
+          const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          setMessages(prev => [...prev, { role: 'user', text: msg, time: now }]);
+          setLoading(true);
+          try {
+            const res = await fetch('/api/chat/guest', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: msg }),
+            });
+            const body = await res.json();
+            if (res.status === 429 || body.exhausted) {
+              localStorage.setItem('avocai_guest_exhausted', '1');
+              setGuestExhausted(true);
+              return;
+            }
+            if (!res.ok) { setMessages(prev => [...prev, { role: 'error', text: body.error || 'Erreur serveur.' }]); return; }
+            const articles = (body.articles || []).map(a => {
+              const parts = (a.code || '').split('—');
+              return { code: parts[0]?.trim() || a.code, title: parts[1]?.trim() || '', excerpt: a.texte, link: a.lien };
+            });
+            setMessages(prev => [...prev, {
+              role: 'ai', time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+              contexte: body.contexte, summary: body.resume, risk: body.risque_niveau || 3,
+              probability: body.probabilite, delai: body.delai_legal, sanctions: body.sanctions || null,
+              articles, actions: body.actions_gratuites || [],
+              premium: body.demarche_disponible, premiumTitle: body.demarche_titre, premiumBody: body.demarche_description,
+            }]);
+          } catch (err) {
+            setMessages(prev => [...prev, { role: 'error', text: err.message }]);
+          } finally { setLoading(false); }
+          return;
+        }
+
+        // Invité sans pass → sauvegarder le message + modale de connexion
         if (isGuest) {
+          sessionStorage.setItem('avocai_pending_message', msg);
           setShowLoginModal(true);
           return;
         }
@@ -1042,7 +1227,8 @@
         setInput('');
         if (!convTitle) setConvTitle(msg.length > 40 ? msg.slice(0, 40) + '…' : msg);
 
-        const userMsg = { role: 'user', text: msg };
+        const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const userMsg = { role: 'user', text: msg, time: now };
         setMessages(prev => [...prev, userMsg]);
         setLoading(true);
 
@@ -1097,6 +1283,7 @@
 
           const aiMsg = {
             role: 'ai',
+            time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
             contexte: data.contexte,
             summary: data.resume,
             risk: data.risque_niveau || 3,
@@ -1127,10 +1314,37 @@
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, [messages, loading]);
 
+      useEffect(() => {
+        if (authChecked && heroMessage && !heroSentRef.current) {
+          heroSentRef.current = true;
+          onHeroMessageConsumed?.();
+          handleSend(heroMessage);
+        }
+      }, [authChecked, heroMessage]);
+
+      useEffect(() => {
+        if (authChecked) {
+          const pending = sessionStorage.getItem('avocai_pending_message');
+          if (pending) {
+            sessionStorage.removeItem('avocai_pending_message');
+            handleSend(pending);
+          }
+        }
+      }, [authChecked]);
+
       return (
         <div style={{ display: 'flex', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
           {/* Modale invité */}
-          {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
+          {showLoginModal && (
+            <LoginModal
+              onClose={() => setShowLoginModal(false)}
+              onContinueAsGuest={() => {
+                localStorage.setItem('avocai_guest_allowed', '1');
+                setShowLoginModal(false);
+                if (input.trim()) handleSend(input.trim());
+              }}
+            />
+          )}
 
           {/* Sidebar */}
           {sidebarOpen && (
@@ -1188,10 +1402,12 @@
               {!isGuest ? (
                 <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#5e6ad2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 510, color: '#fff' }}>{(user?.email || '?')[0].toUpperCase()}</span>
+                    <span style={{ fontSize: 13, fontWeight: 510, color: '#fff' }}>{(user?.firstName || user?.email || '?')[0].toUpperCase()}</span>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email || '—'}</div>
+                    <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.email || '—'}
+                    </div>
                     <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>Plan {user?.plan === 'pro' ? 'Pro ✦' : 'Gratuit'}</div>
                   </div>
                   <button onClick={logout} title="Se déconnecter"
@@ -1219,7 +1435,7 @@
             </div>
 
             {/* Messages */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 24px 8px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 24px 8px', position: 'relative' }}>
               {messages.length === 0 ? (
                 <EmptyState onSuggestion={handleSend} />
               ) : (
@@ -1227,8 +1443,11 @@
                   {messages.map((msg, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                       {msg.role === 'user' ? (
-                        <div style={{ background: '#5e6ad2', color: '#fff', borderRadius: 8, padding: '10px 14px', maxWidth: '70%', fontSize: 15, lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
-                          {msg.text}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, maxWidth: '70%' }}>
+                          <div style={{ background: '#5e6ad2', color: '#fff', borderRadius: 8, padding: '10px 14px', width: 'fit-content', fontSize: 15, lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
+                            {msg.text}
+                          </div>
+                          {msg.time && <span style={{ fontSize: 11, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>{msg.time}</span>}
                         </div>
                       ) : msg.role === 'error' ? (
                         <ErrorCard message={msg.text} />
@@ -1240,7 +1459,7 @@
                               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>Quota journalier atteint</span>
                             </div>
                             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 14px', lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
-                              Vous avez utilisé vos {msg.quota?.limit || 3} analyses gratuites d'aujourd'hui.
+                              Vous avez utilisé vos {msg.quota?.limit || 5} analyses gratuites d'aujourd'hui.
                               Le compteur se remet à zéro à minuit UTC.
                             </p>
                             <button onClick={scrollToPricing} style={{
@@ -1267,9 +1486,81 @@
                   <div ref={bottomRef} />
                 </div>
               )}
+
+              {/* Overlay flou — position absolute après le contenu, ne pousse rien */}
+              {isGuest && guestExhausted && messages.length > 0 && (() => {
+                const saveAndGo = (url) => {
+                  sessionStorage.setItem('avocai_guest_session', JSON.stringify(messages));
+                  window.location.href = url;
+                };
+                return (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(to bottom, transparent 0%, rgba(8,9,10,0.88) 35%, rgba(8,9,10,0.98) 100%)',
+                    backdropFilter: 'blur(3px)',
+                    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                    paddingBottom: 40, zIndex: 10,
+                  }}>
+                    <div style={{
+                      background: '#16171a', border: '1px solid rgba(94,106,210,0.35)',
+                      borderRadius: 14, padding: '32px 40px', textAlign: 'center',
+                      maxWidth: 400, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+                    }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: '#5e6ad2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+                          <rect width="28" height="28" rx="4" fill="#5e6ad2"/>
+                          <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95"/>
+                        </svg>
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 590, color: '#f7f8f8', marginBottom: 8, fontFeatureSettings: '"cv01","ss03"' }}>
+                        Continuez avec un compte gratuit
+                      </div>
+                      <div style={{ fontSize: 14, color: '#8a8f98', lineHeight: 1.6, marginBottom: 24, fontFeatureSettings: '"cv01","ss03"' }}>
+                        Obtenez <strong style={{ color: '#d0d6e0' }}>5 analyses par jour</strong>, sauvegardez vos conversations et accédez à votre historique.
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <button onClick={() => saveAndGo('/register')}
+                          style={{ width: '100%', padding: '11px 0', borderRadius: 8, border: 'none', background: '#5e6ad2', color: '#fff', fontSize: 14, fontWeight: 510, cursor: 'pointer', fontFeatureSettings: '"cv01","ss03"' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                          onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                        >Créer un compte gratuit</button>
+                        <button onClick={() => saveAndGo('/login')}
+                          style={{ width: '100%', padding: '11px 0', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: '#d0d6e0', fontSize: 14, fontWeight: 510, cursor: 'pointer', fontFeatureSettings: '"cv01","ss03"' }}
+                        >Se connecter</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
+            {/* Mur invité épuisé */}
+            {isGuest && guestExhausted && (
+              <div style={{ flexShrink: 0, padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-page)' }}>
+                <div style={{ maxWidth: 780, margin: '0 auto', background: '#16171a', border: '1px solid rgba(94,106,210,0.35)', borderRadius: 10, padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 590, color: '#f7f8f8', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>
+                      Vous avez utilisé votre analyse gratuite
+                    </div>
+                    <div style={{ fontSize: 13, color: '#8a8f98', fontFeatureSettings: '"cv01","ss03"' }}>
+                      Créez un compte gratuit pour obtenir <strong style={{ color: '#d0d6e0' }}>5 analyses par jour</strong>.
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                    <button onClick={() => window.location.href = '/register'} style={{ padding: '9px 18px', borderRadius: 7, border: 'none', background: '#5e6ad2', color: '#fff', fontSize: 14, fontWeight: 510, cursor: 'pointer', fontFeatureSettings: '"cv01","ss03"' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                    >Créer un compte gratuit</button>
+                    <button onClick={() => window.location.href = '/login'} style={{ padding: '9px 18px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: '#d0d6e0', fontSize: 14, fontWeight: 510, cursor: 'pointer', fontFeatureSettings: '"cv01","ss03"' }}>
+                      Se connecter
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Input bar */}
+            {!(isGuest && guestExhausted) && (
             <div style={{ flexShrink: 0, padding: '12px 24px 16px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-page)' }}>
               <div style={{ maxWidth: 780, margin: '0 auto' }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
@@ -1319,6 +1610,7 @@
                 </p>
               </div>
             </div>
+            )}
           </div>
         </div>
       );
@@ -1327,8 +1619,20 @@
     /* ── App root ────────────────────────────────────────── */
 
     const App = () => {
-      const [page, setPage] = useState('landing');
+      const [page, setPage] = useState(() =>
+        getToken() && sessionStorage.getItem('avocai_pending_message') ? 'chat' : 'landing'
+      );
       const [theme, setTheme] = useState('dark');
+      const [heroMessage, setHeroMessage] = useState(null);
+      const [scrollTarget, setScrollTarget] = useState(null);
+
+      useEffect(() => {
+        if (page === 'landing' && scrollTarget) {
+          const id = scrollTarget;
+          setScrollTarget(null);
+          setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 80);
+        }
+      }, [page, scrollTarget]);
 
       const toggleTheme = () => {
         const next = theme === 'light' ? 'dark' : 'light';
@@ -1336,10 +1640,16 @@
         document.documentElement.setAttribute('data-theme', next);
       };
 
+      const handleHeroSend = (text) => {
+        setHeroMessage(text);
+      };
+
       return (
         <div>
-          <Navbar page={page} setPage={setPage} theme={theme} toggleTheme={toggleTheme} />
-          {page === 'landing' ? <LandingPage setPage={setPage} /> : <ChatInterface setPage={setPage} />}
+          <Navbar page={page} setPage={setPage} theme={theme} toggleTheme={toggleTheme} onNavSection={id => { setScrollTarget(id); setPage('landing'); }} />
+          {page === 'landing'
+            ? <LandingPage setPage={setPage} onHeroSend={handleHeroSend} />
+            : <ChatInterface setPage={setPage} heroMessage={heroMessage} onHeroMessageConsumed={() => setHeroMessage(null)} />}
         </div>
       );
     };
