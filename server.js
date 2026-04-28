@@ -33,9 +33,14 @@ const googleClient = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
 
 // ── Quota config ────────────────────────────────────────
 const QUOTA_LIMITS = { free: 5, pro: 150 };
+const IP_DAILY_LIMIT_FREE = 5; // max requêtes/jour/IP tous comptes free confondus
 
 function todayUTC() {
   return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+}
+
+function getClientIP(req) {
+  return (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 }
 
 // ── Pages ───────────────────────────────────────────────
@@ -44,6 +49,7 @@ app.get('/login',    (req, res) => res.sendFile(path.join(__dirname, 'login.html
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'register.html')));
 app.get('/success',  (req, res) => res.sendFile(path.join(__dirname, 'success.html')));
 app.get('/cancel',   (req, res) => res.sendFile(path.join(__dirname, 'cancel.html')));
+app.get('/checkout', (req, res) => res.sendFile(path.join(__dirname, 'checkout.html')));
 
 // ── Config publique (Google Client ID) ─────────────────
 app.get('/api/config', (req, res) => {
@@ -82,12 +88,27 @@ function checkQuota(req, res, next) {
 
   if (record.count >= limit) {
     return res.status(429).json({
-      error: `Quota journalier atteint. Votre plan ${plan} autorise ${limit} analyse${limit > 1 ? 's' : ''}/jour.`,
+      error: `Quota journalier atteint. Passez à Premium pour continuer.`,
       quota: { used: record.count, limit, plan, reset: 'minuit UTC' },
     });
   }
 
-  // Incrémenter le compteur
+  // Limite IP par jour pour les comptes gratuits (bloque les multi-comptes)
+  if (plan === 'free') {
+    const ip = getClientIP(req);
+    db.prepare('INSERT OR IGNORE INTO ip_daily_requests (ip, date, count) VALUES (?, ?, 0)').run(ip, today);
+    const ipRecord = db.prepare('SELECT count FROM ip_daily_requests WHERE ip = ? AND date = ?').get(ip, today);
+    if (ipRecord && ipRecord.count >= IP_DAILY_LIMIT_FREE) {
+      return res.status(429).json({
+        error: `Limite journalière atteinte pour votre connexion. Réessayez demain ou passez à Premium.`,
+        quota: { used: record.count, limit, plan, reset: 'minuit UTC' },
+        ip_exhausted: true,
+      });
+    }
+    db.prepare('UPDATE ip_daily_requests SET count = count + 1 WHERE ip = ? AND date = ?').run(ip, today);
+  }
+
+  // Incrémenter le compteur utilisateur
   db.prepare(
     'UPDATE daily_requests SET count = count + 1 WHERE user_id = ? AND date = ?'
   ).run(userId, today);
@@ -150,7 +171,7 @@ app.get('/api/auth/google/start', (req, res) => {
   }
   const url = googleClient.generateAuthUrl({
     access_type: 'online',
-    scope: ['email', 'profile', 'https://www.googleapis.com/auth/user.birthday.read'],
+    scope: ['email', 'profile'],
     prompt: 'select_account',
   });
   res.redirect(url);
@@ -304,6 +325,22 @@ app.delete('/api/conversations/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/conversations/import-guest', requireAuth, (req, res) => {
+  const { userMessage, aiResponse } = req.body || {};
+  if (!userMessage || !aiResponse) return res.status(400).json({ error: 'Données manquantes.' });
+
+  const title = userMessage.length > 50 ? userMessage.slice(0, 50) + '…' : userMessage;
+  try {
+    const convResult = db.prepare('INSERT INTO conversations (user_id, title) VALUES (?, ?)').run(req.user.id, title);
+    const convId = convResult.lastInsertRowid;
+    db.prepare('INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)').run(convId, 'user', JSON.stringify({ text: userMessage }));
+    db.prepare('INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)').run(convId, 'ai', JSON.stringify(aiResponse));
+    res.json({ conversation_id: convId, title });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur lors de la sauvegarde.' });
+  }
+});
+
 // ── OpenAI ──────────────────────────────────────────────
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -329,7 +366,7 @@ Si l'utilisateur est victime, veut porter plainte, contester une procédure reç
 - resume : explique la situation et si besoin pose UNE seule question courte pour affiner
 - delai_legal : délai pour porter plainte ou contester
 - demarche_disponible : true
-- demarche_titre / demarche_description : met en avant la rapidité avec AvocAI Pro (jusqu'à 10× plus rapide)
+- demarche_titre / demarche_description : met en avant la rapidité avec AvocAI Premium (jusqu'à 10× plus rapide)
 
 ════════════════════════════════════════
 RÈGLE 3 — Infraction commise (analyse standard)
@@ -460,13 +497,13 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
 // ── POST /api/chat/guest (1 requête max par IP par jour) ─
 app.post('/api/chat/guest', async (req, res) => {
-  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const ip = getClientIP(req);
   const today = todayUTC();
 
   db.prepare('INSERT OR IGNORE INTO guest_requests (ip, date, count) VALUES (?, ?, 0)').run(ip, today);
   const record = db.prepare('SELECT count FROM guest_requests WHERE ip = ? AND date = ?').get(ip, today);
 
-  if (record && record.count >= 9999) {
+  if (record && record.count >= 1) {
     return res.status(429).json({
       error: 'Vous avez utilisé votre analyse gratuite. Créez un compte pour continuer.',
       exhausted: true,
@@ -502,10 +539,98 @@ app.post('/api/chat/guest', async (req, res) => {
   }
 });
 
+// ── GET /api/stripe-config ──────────────────────────────
+app.get('/api/stripe-config', (req, res) => {
+  res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || null });
+});
+
+// ── POST /api/create-subscription-intent ────────────────
+app.post('/api/create-subscription-intent', requireAuth, async (req, res) => {
+  const { plan = 'pro' } = req.body || {};
+  const PRICE_IDS = {
+    pro:      process.env.STRIPE_PRICE_ID_PREMIUM,
+    pro_plus: process.env.STRIPE_PRICE_ID_PREMIUM_PLUS,
+  };
+  const priceId = PRICE_IDS[plan];
+  if (!priceId) return res.status(503).json({ error: `Prix Stripe non configuré pour "${plan}".` });
+
+  const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+
+  try {
+    // Crée ou récupère le customer Stripe
+    let customerId = user.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: user.email });
+      customerId = customer.id;
+      db.prepare('UPDATE users SET stripe_customer_id = ? WHERE id = ?').run(customerId, req.user.id);
+    }
+
+    // Crée la subscription (incomplète, en attente de paiement)
+    const subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: priceId }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      expand: ['latest_invoice.payment_intent'],
+    });
+
+    db.prepare('UPDATE users SET stripe_subscription_id = ? WHERE id = ?').run(subscription.id, req.user.id);
+
+    res.json({
+      subscriptionId: subscription.id,
+      clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+    });
+  } catch (err) {
+    console.error('Stripe subscription error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/stripe-webhook ─────────────────────────────
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) return res.json({ received: true });
+
+  let event;
+  try {
+    event = Stripe(process.env.STRIPE_SECRET_KEY).webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+
+  if (event.type === 'invoice.payment_succeeded') {
+    const subscriptionId = event.data.object.subscription;
+    const priceId = event.data.object.lines?.data?.[0]?.price?.id;
+    const plan = priceId === process.env.STRIPE_PRICE_ID_PREMIUM_PLUS ? 'pro_plus' : 'pro';
+    db.prepare('UPDATE users SET plan = ? WHERE stripe_subscription_id = ?').run(plan, subscriptionId);
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    const subscriptionId = event.data.object.id;
+    db.prepare('UPDATE users SET plan = "free" WHERE stripe_subscription_id = ?').run(subscriptionId);
+  }
+
+  res.json({ received: true });
+});
+
 // ── POST /api/create-checkout ───────────────────────────
 app.post('/api/create-checkout', async (req, res) => {
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PRICE_ID) {
-    return res.status(503).json({ error: 'Paiement non configuré (clés Stripe manquantes).' });
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Paiement non configuré (clé Stripe manquante).' });
+  }
+
+  const { plan = 'pro' } = req.body || {};
+
+  const PRICE_IDS = {
+    pro:      process.env.STRIPE_PRICE_ID_PREMIUM      || process.env.STRIPE_PRICE_ID,
+    pro_plus: process.env.STRIPE_PRICE_ID_PREMIUM_PLUS || null,
+  };
+
+  const priceId = PRICE_IDS[plan];
+  if (!priceId) {
+    return res.status(503).json({ error: `Prix Stripe non configuré pour le plan "${plan}".` });
   }
 
   const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
@@ -513,15 +638,15 @@ app.post('/api/create-checkout', async (req, res) => {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-      success_url: process.env.SUCCESS_URL || 'http://localhost:3000/success',
-      cancel_url: process.env.CANCEL_URL || 'http://localhost:3000/cancel',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${process.env.SUCCESS_URL || 'http://localhost:3000/success'}?plan=${plan}`,
+      cancel_url: process.env.CANCEL_URL || 'http://localhost:3000/pricing',
     });
     res.json({ url: session.url });
   } catch (err) {
     console.error('Stripe error:', err.message);
     const msg = err.message?.includes('No such price')
-      ? 'STRIPE_PRICE_ID invalide — utilise un ID commençant par price_ (pas prod_).'
+      ? 'STRIPE_PRICE_ID invalide — utilise un ID commençant par price_.'
       : `Impossible de créer la session de paiement: ${err.message}`;
     res.status(500).json({ error: msg });
   }

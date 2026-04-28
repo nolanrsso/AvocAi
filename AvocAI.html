@@ -30,13 +30,18 @@
       --danger:              #ef4444;
     }
     [data-theme="light"] {
-      --bg-page:             #e9e9e9;
-      --bg-panel:            #dbdbdb;
-      --bg-surface:          #dbdbdb;
-      --bg-surface-elevated: #dbdbdb;
-      --btn-bg:              #dbdbdb;
-      --border-default:      rgba(0,0,0,0.18);
-      --border-subtle:       rgba(0,0,0,0.10);
+      --bg-page:             #e8e9ed;
+      --bg-panel:            #dfe0e5;
+      --bg-surface:          #f4f5f8;
+      --bg-surface-elevated: #ecedf1;
+      --bg-elevated:         #b8b8c0;
+      --btn-bg:              #ecedf1;
+      --border-default:      rgba(0,0,0,0.14);
+      --border-subtle:       rgba(0,0,0,0.08);
+      --text-primary:        #0c0e12;
+      --text-body:           #2b2e36;
+      --text-muted:          #52565f;
+      --text-subtle:         #9095a0;
     }
     [data-theme="dark"] {
       --bg-page:             #08090a;
@@ -77,6 +82,7 @@
     }
 
     textarea::placeholder { color: var(--text-subtle); }
+    input::placeholder { color: var(--text-subtle); }
     textarea { color-scheme: light dark; }
 
     /* ── Responsive navbar ──────────────────────────────── */
@@ -96,6 +102,12 @@
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
+    /* ── Applique le thème sauvegardé immédiatement ────── */
+    (() => {
+      const t = localStorage.getItem('avocai_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
 
     /* ── Récupère le token Google après le redirect OAuth ── */
     (() => {
@@ -128,18 +140,8 @@
     };
 
     /* ── Stripe / Pro upgrade ───────────────────────────── */
-    const handleProUpgrade = async () => {
-      try {
-        const res = await fetch('/api/create-checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        if (!res.ok) throw new Error('Réponse serveur invalide');
-        const { url } = await res.json();
-        window.location.href = url;
-      } catch (err) {
-        alert("Impossible d'accéder au paiement. Vérifiez que le serveur est démarré (npm start).");
-      }
+    const handleProUpgrade = (plan = 'pro', isMonthly = false) => {
+      window.location.href = '/checkout?plan=' + plan + '&billing=' + (isMonthly ? 'monthly' : 'weekly');
     };
 
     // Scroll vers la section Tarifs (depuis n'importe où)
@@ -477,7 +479,7 @@
             <div style={{ maxWidth: 640, margin: '0 auto 16px', position: 'relative' }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10,
-                background: '#16171a', border: '1px solid rgba(94,106,210,0.3)',
+                background: 'var(--bg-surface)', border: '1px solid rgba(94,106,210,0.35)',
                 borderRadius: 9999, padding: '10px 16px',
                 boxShadow: '0 0 0 4px rgba(94,106,210,0.07)',
                 transition: 'border-color 0.2s, box-shadow 0.2s',
@@ -498,7 +500,7 @@
                   placeholder="Expliquez moi votre situation…"
                   style={{
                     flex: 1, background: 'none', border: 'none', outline: 'none',
-                    fontSize: 15, color: '#f7f8f8', fontFeatureSettings: '"cv01","ss03"',
+                    fontSize: 15, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"',
                     caretColor: '#7170ff',
                   }}
                 />
@@ -508,8 +510,8 @@
                   disabled={!heroInput.trim()}
                   style={{
                     width: 32, height: 32, borderRadius: '50%', border: 'none', flexShrink: 0,
-                    background: heroInput.trim() ? '#5e6ad2' : 'rgba(255,255,255,0.08)',
-                    color: heroInput.trim() ? '#fff' : 'rgba(255,255,255,0.3)',
+                    background: heroInput.trim() ? '#5e6ad2' : 'var(--btn-bg)',
+                    color: heroInput.trim() ? '#fff' : 'var(--text-subtle)',
                     cursor: heroInput.trim() ? 'pointer' : 'default',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     transition: 'background 0.15s',
@@ -551,7 +553,7 @@
       const steps = [
         { n: '01', title: 'Décrivez votre situation', body: 'Écrivez librement, comme à un ami. Pas besoin de jargon juridique.' },
         { n: '02', title: 'AvocAI analyse en temps réel', body: "L'IA identifie les lois applicables, évalue vos risques et calcule vos chances." },
-        { n: '03', title: 'Défendez-vous si nécessaire', body: "Passez au Pro pour que l'IA remplisse vos démarches officielles à votre place." },
+        { n: '03', title: 'Défendez-vous si nécessaire', body: "Passez au Premium pour que l'IA remplisse vos démarches officielles à votre place." },
       ];
       return (
         <section id="fonctionnalites" style={{ background: 'var(--bg-panel)', padding: '80px 24px', borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -576,87 +578,132 @@
     /* ── Landing: Pricing ───────────────────────────────── */
 
     const Pricing = ({ setPage }) => {
-      const check = <span style={{ color: '#27a644', marginRight: 8 }}>✓</span>;
-      const freeFeatures = ['5 analyses / jour', 'Analyse juridique', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite', 'Historique des 7 derniers jours'];
-      const proFeatures  = ['100 analyses / jour', 'Analyse juridique', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite', 'Historique illimité'];
-      const proPlus      = ['Toutes les fonctionnalités du plan AvocAI Pro', 'Aide au remplissage de démarches', 'Formulaires officiels pré-remplis', 'Lettres types générées par IA', 'Suivi de dossier pas à pas', 'Alertes délais légaux'];
-
+      const [isMonthly, setIsMonthly] = useState(false);
       const userPlan = getStoredUser()?.plan || (getToken() ? 'free' : null);
 
-      const cardBase = {
-        flex: '1 1 280px', maxWidth: 340,
-        background: 'var(--btn-bg)', border: '1px solid var(--border-default)',
-        borderRadius: 8, padding: 32, textAlign: 'left',
-        display: 'flex', flexDirection: 'column',
+      const prices = {
+        pro:      { weekly: '3€',  monthly: '10€' },
+        pro_plus: { weekly: '4€',  monthly: '12€' },
       };
 
+      const freeFeatures    = ['3 analyses / jour', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite'];
+      const proFeatures     = ['Tout le plan Gratuit', '100 analyses / jour', 'Historique illimité', 'Support 24h'];
+      const proNotAvailable = ['Démarches officielles guidées', 'Formulaires officiels pré-remplis'];
+      const proPlus       = ['Tous les avantages du plan Premium', 'Aide au remplissage de démarches', 'Formulaires officiels pré-remplis', 'Lettres types générées par IA', 'Suivi de dossier pas à pas', 'Alertes délais légaux', 'Support prioritaire 24h'];
+
+      const Check = ({ muted }) => (
+        <span style={{ color: muted ? 'var(--text-subtle)' : '#27a644', marginRight: 8, fontSize: 13 }}>{muted ? '✕' : '✓'}</span>
+      );
+
       const CurrentBtn = () => (
-        <button disabled style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-subtle)', cursor: 'default', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>
+        <button disabled style={{ width: '100%', padding: '11px 16px', borderRadius: 10, border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-subtle)', cursor: 'default', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>
           Plan actuel
         </button>
       );
 
+      const cardStyle = (featured) => ({
+        flex: '1 1 280px', maxWidth: 340,
+        background: 'var(--bg-surface)',
+        border: featured ? '1px solid #5e6ad2' : '1px solid var(--border-default)',
+        boxShadow: featured ? '0 0 0 1px #5e6ad2, 0 8px 32px rgba(94,106,210,0.12)' : 'none',
+        borderRadius: 16, padding: 28, textAlign: 'left',
+        display: 'flex', flexDirection: 'column', position: 'relative',
+      });
+
       return (
         <section id="tarifs" style={{ background: 'var(--bg-page)', padding: '80px 24px' }}>
-          <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
-            <h2 style={{ fontSize: 32, fontWeight: 400, color: 'var(--text-primary)', letterSpacing: '-0.704px', marginBottom: 12, fontFeatureSettings: '"cv01","ss03"' }}>Tarifs</h2>
-            <p style={{ fontSize: 18, color: 'var(--text-muted)', marginBottom: 48, fontFeatureSettings: '"cv01","ss03"' }}>
-              Commencez gratuitement, passez à Pro quand vous en avez besoin.
+          <div style={{ maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
+
+            {/* Badge */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(94,106,210,0.1)', border: '1px solid rgba(94,106,210,0.25)', borderRadius: 9999, padding: '4px 14px', fontSize: 11, fontWeight: 600, color: '#7170ff', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 20 }}>
+              Tarifs simples
+            </div>
+
+            <h2 style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-1px', marginBottom: 12, fontFeatureSettings: '"cv01","ss03"' }}>
+              Choisissez votre plan
+            </h2>
+            <p style={{ fontSize: 16, color: 'var(--text-muted)', marginBottom: 32, fontFeatureSettings: '"cv01","ss03"' }}>
+              Commencez gratuitement, passez à Premium quand vous en avez besoin.
             </p>
-            <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 1100, margin: '0 auto', alignItems: 'stretch' }}>
+
+            {/* Toggle hebdo / mensuel */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 48 }}>
+              <span style={{ fontSize: 14, fontWeight: isMonthly ? 400 : 600, color: isMonthly ? 'var(--text-muted)' : 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>Hebdomadaire</span>
+              <div onClick={() => setIsMonthly(!isMonthly)} style={{ position: 'relative', width: 44, height: 24, background: isMonthly ? '#5e6ad2' : 'var(--bg-elevated, #28282c)', border: '1px solid var(--border-default)', borderRadius: 9999, cursor: 'pointer', transition: 'background 0.2s' }}>
+                <div style={{ position: 'absolute', top: 2, left: isMonthly ? 22 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+              </div>
+              <span style={{ fontSize: 14, fontWeight: isMonthly ? 600 : 400, color: isMonthly ? 'var(--text-primary)' : 'var(--text-muted)', fontFeatureSettings: '"cv01","ss03"' }}>
+                Mensuel <span style={{ background: 'rgba(39,166,68,0.12)', border: '1px solid rgba(39,166,68,0.25)', color: '#27a644', borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 600, marginLeft: 4 }}>−30%</span>
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'stretch' }}>
 
               {/* ── Gratuit ── */}
-              <div style={cardBase}>
-                <div style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 8, fontFeatureSettings: '"cv01","ss03"' }}>Gratuit</div>
-                <div style={{ fontSize: 48, fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 24, fontFeatureSettings: '"cv01","ss03"' }}>0€</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28, flex: 1 }}>
-                  {freeFeatures.map(f => <div key={f} style={{ fontSize: 15, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>)}
+              <div style={cardStyle(false)}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-subtle)', marginBottom: 10 }}>Gratuit</div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, marginBottom: 6 }}>
+                  <span style={{ fontSize: 44, fontWeight: 500, letterSpacing: '-2px', color: 'var(--text-primary)', lineHeight: 1 }}>0</span>
+                  <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>€</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>&nbsp;/ toujours</span>
                 </div>
-                {userPlan === 'free' ? <CurrentBtn /> : (
-                  <button onClick={() => setPage('chat')} style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: '1px solid var(--btn-border)', background: 'var(--btn-bg)', color: 'var(--text-body)', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.5 }}>Pour découvrir AvocAI et vos situations du quotidien.</p>
+                <div style={{ height: 1, background: 'var(--border-default)', marginBottom: 18 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, flex: 1 }}>
+                  {freeFeatures.map(f => <div key={f} style={{ fontSize: 14, color: 'var(--text-body)', display: 'flex', alignItems: 'center', fontFeatureSettings: '"cv01","ss03"' }}><Check />  {f}</div>)}
+                  <div style={{ fontSize: 14, color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', fontFeatureSettings: '"cv01","ss03"' }}><Check muted /> Historique des conversations</div>
+                  <div style={{ fontSize: 14, color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', fontFeatureSettings: '"cv01","ss03"' }}><Check muted /> Démarches officielles</div>
+                </div>
+                {userPlan === 'free' || !userPlan ? <CurrentBtn /> : (
+                  <button onClick={() => setPage('chat')} style={{ width: '100%', padding: '11px 16px', borderRadius: 10, border: '1px solid var(--border-strong, rgba(0,0,0,0.16))', background: 'transparent', color: 'var(--text-body)', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFamily: 'inherit', fontFeatureSettings: '"cv01","ss03"' }}>
                     Commencer gratuitement
                   </button>
                 )}
               </div>
 
-              {/* ── AvocAI Pro ── */}
-              <div style={{ ...cardBase, border: '1px solid var(--border-default)' }}>
-                <div style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>AvocAI Pro</div>
-                <div style={{ fontSize: 48, fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>
-                  3€<span style={{ fontSize: 30, fontWeight: 590 }}>/semaine</span>
+              {/* ── Premium ── */}
+              <div style={cardStyle(false)}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7170ff', marginBottom: 10 }}>Premium</div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, marginBottom: 6 }}>
+                  <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>€</span>
+                  <span style={{ fontSize: 44, fontWeight: 500, letterSpacing: '-2px', color: 'var(--text-primary)', lineHeight: 1 }}>{isMonthly ? '10' : '3'}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>&nbsp;/ {isMonthly ? 'mois' : 'semaine'}</span>
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, fontFeatureSettings: '"cv01","ss03"' }}>ou 79€/an · Résiliable à tout moment</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28, flex: 1 }}>
-                  {proFeatures.map(f => <div key={f} style={{ fontSize: 15, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>)}
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.5 }}>{isMonthly ? 'Économisez 30% avec la facturation mensuelle.' : 'Idéal pour suivre un dossier ou gérer plusieurs situations.'}</p>
+                <div style={{ height: 1, background: 'var(--border-default)', marginBottom: 18 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, flex: 1 }}>
+                  {proFeatures.map((f, i) => <div key={f} style={{ fontSize: i === 0 ? 15 : 14, color: 'var(--text-body)', display: 'flex', alignItems: 'center', fontWeight: i === 0 ? 800 : i === 1 ? 600 : 400, fontFeatureSettings: '"cv01","ss03"' }}><Check /> {f}</div>)}
+                  {proNotAvailable.map(f => <div key={f} style={{ fontSize: 14, color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', fontFeatureSettings: '"cv01","ss03"' }}><Check muted /> {f}</div>)}
                 </div>
                 {userPlan === 'pro' ? <CurrentBtn /> : (
-                  <button onClick={handleProUpgrade}
-                    style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}
-                    onMouseEnter={e => e.target.style.background = '#828fff'}
-                    onMouseLeave={e => e.target.style.background = '#5e6ad2'}
-                  >Passer à Pro</button>
+                  <button onClick={() => handleProUpgrade('pro', isMonthly)}
+                    style={{ width: '100%', padding: '11px 16px', borderRadius: 10, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.15s', fontFeatureSettings: '"cv01","ss03"' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                  >Passer à Premium →</button>
                 )}
               </div>
 
-              {/* ── AvocAI Pro+ ── */}
-              <div style={{ ...cardBase, border: '1px solid #5e6ad2', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: -12, right: 20, background: '#5e6ad2', color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}>Le plus populaire</div>
-                <div style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>AvocAI Pro <span style={{ color: '#7170ff' }}>+</span></div>
-                <div style={{ fontSize: 48, fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 4, fontFeatureSettings: '"cv01","ss03"' }}>
-                  4€<span style={{ fontSize: 30, fontWeight: 590 }}>/semaine</span>
+              {/* ── Premium+ ── */}
+              <div style={cardStyle(true)}>
+                <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: '#5e6ad2', color: '#fff', padding: '3px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Le plus populaire</div>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7170ff', marginBottom: 10 }}>Premium+</div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, marginBottom: 6 }}>
+                  <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>€</span>
+                  <span style={{ fontSize: 44, fontWeight: 500, letterSpacing: '-2px', color: 'var(--text-primary)', lineHeight: 1 }}>{isMonthly ? '12' : '4'}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>&nbsp;/ {isMonthly ? 'mois' : 'semaine'}</span>
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, fontFeatureSettings: '"cv01","ss03"' }}>ou 99€/an · Résiliable à tout moment</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28, flex: 1 }}>
-                  {proPlus.map((f, i) => (
-                    <div key={f} style={{ fontSize: 15, color: i === 0 ? 'var(--text-primary)' : 'var(--text-body)', fontWeight: i === 0 ? 510 : 400, fontFeatureSettings: '"cv01","ss03"' }}>{check}{f}</div>
-                  ))}
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.5 }}>{isMonthly ? 'Économisez 30% avec la facturation mensuelle.' : 'Pour les professionnels et les situations complexes.'}</p>
+                <div style={{ height: 1, background: 'var(--border-default)', marginBottom: 18 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, flex: 1 }}>
+                  {proPlus.map((f, i) => <div key={f} style={{ fontSize: i === 0 ? 15 : 14, color: 'var(--text-body)', display: 'flex', alignItems: 'center', fontWeight: i === 0 ? 800 : 400, fontFeatureSettings: '"cv01","ss03"' }}><Check /> {f}</div>)}
                 </div>
-                {userPlan === 'proplus' ? <CurrentBtn /> : (
-                  <button onClick={handleProUpgrade}
-                    style={{ width: '100%', padding: '9px 16px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"' }}
-                    onMouseEnter={e => e.target.style.background = '#828fff'}
-                    onMouseLeave={e => e.target.style.background = '#5e6ad2'}
-                  >Passer à Pro+</button>
+                {userPlan === 'pro_plus' ? <CurrentBtn /> : (
+                  <button onClick={() => handleProUpgrade('pro_plus', isMonthly)}
+                    style={{ width: '100%', padding: '11px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#7c3aed,#5e6ad2)', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', transition: 'opacity 0.15s', fontFeatureSettings: '"cv01","ss03"' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  >Passer à Premium+ →</button>
                 )}
               </div>
 
@@ -702,7 +749,7 @@
         { q: "AvocAI remplace-t-il un vrai avocat ?", a: "Non. AvocAI est un outil d'information juridique. Pour une procédure judiciaire formelle, consultez toujours un avocat qualifié." },
         { q: "Mes conversations sont-elles confidentielles ?", a: "Oui. Vos données sont chiffrées et ne sont jamais partagées avec des tiers." },
         { q: "Pour quel pays AvocAI fonctionne-t-il ?", a: "AvocAI est spécialisé dans le droit français et les réglementations européennes." },
-        { q: "Comment fonctionne l'aide aux démarches Pro ?", a: "L'IA détecte quand votre situation nécessite une action officielle et vous guide formulaire par formulaire, avec les textes pré-remplis." },
+        { q: "Comment fonctionne l'aide aux démarches Premium ?", a: "L'IA détecte quand votre situation nécessite une action officielle et vous guide formulaire par formulaire, avec les textes pré-remplis." },
       ];
       return (
         <section id="faq" style={{ background: 'var(--bg-page)', padding: '80px 24px', borderTop: '1px solid var(--border-subtle)' }}>
@@ -939,14 +986,14 @@
       const { used, limit, plan } = quota;
       const pct = Math.min(100, Math.round((used / limit) * 100));
       const color = pct >= 100 ? '#ef4444' : pct >= 66 ? '#f59e0b' : '#27a644';
-      const isPro = plan === 'pro';
+      const isPro = plan === 'pro' || plan === 'pro_plus';
 
       if (isPro) return (
         <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-subtle)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 11, color: '#7170ff', fontWeight: 600 }}>✦</span>
             <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFeatureSettings: '"cv01","ss03"' }}>
-              Plan Pro · {used}/{limit} aujourd'hui
+              Plan Premium · {used}/{limit} aujourd'hui
             </span>
           </div>
         </div>
@@ -1127,6 +1174,27 @@
             if (qRes.ok) {
               setQuota(await qRes.json());
             }
+            // Import guest session as a real conversation after login
+            const guestRaw = sessionStorage.getItem('avocai_guest_raw');
+            if (guestRaw) {
+              sessionStorage.removeItem('avocai_guest_raw');
+              localStorage.removeItem('avocai_guest_exhausted');
+              try {
+                const { userMessage, aiResponse } = JSON.parse(guestRaw);
+                const importRes = await fetch('/api/conversations/import-guest', {
+                  method: 'POST',
+                  headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userMessage, aiResponse }),
+                });
+                if (importRes.ok) {
+                  const { conversation_id, title } = await importRes.json();
+                  setConvId(conversation_id);
+                  setConvTitle(title);
+                  const cRes2 = await fetch('/api/conversations', { headers: authHeaders() });
+                  if (cRes2.ok) { const { conversations: convs2 } = await cRes2.json(); setConversations(convs2); }
+                }
+              } catch {}
+            }
             setAuthChecked(true);
           } catch { logout(); }
         })();
@@ -1211,6 +1279,9 @@
               articles, actions: body.actions_gratuites || [],
               premium: body.demarche_disponible, premiumTitle: body.demarche_titre, premiumBody: body.demarche_description,
             }]);
+            sessionStorage.setItem('avocai_guest_raw', JSON.stringify({ userMessage: msg, aiResponse: body }));
+            localStorage.setItem('avocai_guest_exhausted', '1');
+            setGuestExhausted(true);
           } catch (err) {
             setMessages(prev => [...prev, { role: 'error', text: err.message }]);
           } finally { setLoading(false); }
@@ -1322,6 +1393,14 @@
         }
       }, [authChecked, heroMessage]);
 
+      // Déclenche le flou dès qu'un invité reçoit une réponse IA (sécurité)
+      useEffect(() => {
+        if (isGuest && !guestExhausted && messages.some(m => m.role === 'ai')) {
+          localStorage.setItem('avocai_guest_exhausted', '1');
+          setGuestExhausted(true);
+        }
+      }, [messages]);
+
       useEffect(() => {
         if (authChecked) {
           const pending = sessionStorage.getItem('avocai_pending_message');
@@ -1408,7 +1487,7 @@
                     <div style={{ fontSize: 13, fontWeight: 510, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.email || '—'}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>Plan {user?.plan === 'pro' ? 'Pro ✦' : 'Gratuit'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>Plan {user?.plan === 'pro' ? 'Premium ✦' : user?.plan === 'pro_plus' ? 'Premium+ ✦' : 'Gratuit'}</div>
                   </div>
                   <button onClick={logout} title="Se déconnecter"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, padding: 4 }}
@@ -1469,7 +1548,7 @@
                               onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
                               onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
                             >
-                              Passer à Pro — +100 requêtes/jour
+                              Passer à Premium — +100 analyses/jour
                             </button>
                           </div>
                         </div>
@@ -1620,9 +1699,9 @@
 
     const App = () => {
       const [page, setPage] = useState(() =>
-        getToken() && sessionStorage.getItem('avocai_pending_message') ? 'chat' : 'landing'
+        getToken() && (sessionStorage.getItem('avocai_pending_message') || sessionStorage.getItem('avocai_guest_session')) ? 'chat' : 'landing'
       );
-      const [theme, setTheme] = useState('dark');
+      const [theme, setTheme] = useState(() => localStorage.getItem('avocai_theme') || 'dark');
       const [heroMessage, setHeroMessage] = useState(null);
       const [scrollTarget, setScrollTarget] = useState(null);
 
@@ -1638,6 +1717,7 @@
         const next = theme === 'light' ? 'dark' : 'light';
         setTheme(next);
         document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('avocai_theme', next);
       };
 
       const handleHeroSend = (text) => {

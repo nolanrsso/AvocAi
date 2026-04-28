@@ -48,6 +48,13 @@ db.exec(`
     PRIMARY KEY (ip, date)
   );
 
+  CREATE TABLE IF NOT EXISTS ip_daily_requests (
+    ip    TEXT NOT NULL,
+    date  TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (ip, date)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id);
   CREATE INDEX IF NOT EXISTS idx_msg_conv  ON messages(conversation_id);
   CREATE INDEX IF NOT EXISTS idx_daily_req ON daily_requests(user_id, date);
@@ -58,6 +65,8 @@ try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN first_name TEXT'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN last_name TEXT'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN birth_date TEXT'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN stripe_customer_id TEXT'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT'); } catch {}
 
 console.log('✓ Base de données initialisée (avocai.db)');
 
