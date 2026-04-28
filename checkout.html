@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AvocAI — Passer à Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-page:      #08090a;
+      --bg-panel:     #0f1011;
+      --bg-surface:   #191a1b;
+      --text-primary: #f7f8f8;
+      --text-muted:   #8a8f98;
+      --border:       rgba(255,255,255,0.08);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+      text-decoration: none;
+    }
+    .logo span {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+    .price-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    .plan-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #7170ff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .price {
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .price span {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .billing-note {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .features {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .feature {
+      font-size: 14px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feature::before {
+      content: "✓";
+      color: #27a644;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .btn {
+      width: 100%;
+      padding: 13px;
+      background: #5e6ad2;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 12px;
+    }
+    .btn:hover { background: #828fff; }
+    .btn:disabled { opacity: 0.6; cursor: default; }
+    .back {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+    .back:hover { color: var(--text-primary); }
+    .error {
+      color: #ef4444;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a href="/" class="logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="6" fill="#5e6ad2"/>
+        <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fill-opacity="0.95"/>
+        <circle cx="14" cy="20" r="1.5" fill="#7170ff"/>
+      </svg>
+      <span>AvocAI</span>
+    </a>
+
+    <h1>Passer à AvocAI Pro</h1>
+    <p class="subtitle">Accédez à toutes les démarches officielles, formulaires pré-remplis et lettres types générées par IA.</p>
+
+    <div class="price-box">
+      <div class="plan-name">AvocAI Pro</div>
+      <div class="price" id="price-display">1,49€<span>/semaine</span></div>
+      <div class="billing-note" id="billing-note">ou 79€/an · Résiliable à tout moment</div>
+      <div class="features">
+        <div class="feature">Analyse juridique illimitée</div>
+        <div class="feature">Démarches officielles guidées</div>
+        <div class="feature">Formulaires pré-remplis</div>
+        <div class="feature">Lettres types générées par IA</div>
+        <div class="feature">Alertes délais légaux</div>
+        <div class="feature">Historique illimité</div>
+      </div>
+    </div>
+
+    <button class="btn" id="pay-btn" onclick="startCheckout()">Continuer vers le paiement →</button>
+    <div><a href="/" class="back">← Retour au site</a></div>
+    <div class="error" id="error-msg" style="display:none"></div>
+  </div>
+
+  <script>
+    async function startCheckout() {
+      const btn = document.getElementById('pay-btn');
+      const errEl = document.getElementById('error-msg');
+      btn.disabled = true;
+      btn.textContent = 'Chargement...';
+      errEl.style.display = 'none';
+      try {
+        const res = await fetch('/api/create-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || 'Erreur serveur');
+        }
+        const { url } = await res.json();
+        window.location.href = url;
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Continuer vers le paiement →';
+      }
+    }
+  </script>
+</body>
+</html>
