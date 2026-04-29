@@ -32,7 +32,7 @@ const googleClient = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
   : null;
 
 // ── Quota config ────────────────────────────────────────
-const QUOTA_LIMITS = { free: 5, pro: 150 };
+const QUOTA_LIMITS = { free: 5, pro: 150, admin: Infinity };
 const IP_DAILY_LIMIT_FREE = 5; // max requêtes/jour/IP tous comptes free confondus
 
 function todayUTC() {
@@ -74,6 +74,10 @@ function checkQuota(req, res, next) {
   const userId = req.user.id;
   const userRecord = db.prepare('SELECT plan FROM users WHERE id = ?').get(userId);
   const plan = userRecord?.plan || 'free';
+
+  // Admin = illimité, bypass total du quota
+  if (plan === 'admin') return next();
+
   const limit = QUOTA_LIMITS[plan] ?? QUOTA_LIMITS.free;
   const today = todayUTC();
 
