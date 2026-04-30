@@ -1230,6 +1230,91 @@
         { id:'details', label:'Informations supplémentaires', placeholder:'Tout détail utile à votre dossier…', textarea:true, optional:true },
       ];
 
+    /* ── Contexte adaptatif (étape 3) ───────────────────── */
+    const CONTEXT_FIELDS = {
+      'consommation-remboursement': {
+        problem: { label:'Décrivez le problème *', placeholder:'Quel produit ou service ? Pourquoi demandez-vous un remboursement ? Quelles démarches avez-vous déjà tentées ?' },
+        when:    { label:'Date d\'achat et événements clés *', placeholder:'Ex : Le 10 janvier 2024, j\'ai acheté… Le vendeur refuse le remboursement car…' },
+        party:   { label:'Vendeur / entreprise *', placeholder:'Ex : Amazon France SAS, Fnac, Cdiscount…', tip:'Indiquez le nom exact tel qu\'il figure sur la facture ou le bon de commande.' },
+      },
+      'consommation-livraison': {
+        problem: { label:'Décrivez le problème *', placeholder:'Colis non reçu, endommagé, mauvais article reçu ? Expliquez la situation.' },
+        when:    { label:'Date de commande et délai prévu *', placeholder:'Ex : Commande passée le 5 mars, livraison prévue le 12 mars. Le colis n\'est jamais arrivé…' },
+        party:   { label:'Vendeur / transporteur *', placeholder:'Ex : La Redoute, DHL, Chronopost…', tip:'Citez le vendeur indiqué sur le bon de commande, ou le transporteur si différent.' },
+      },
+      'consommation-abonnement': {
+        problem: { label:'Décrivez le problème *', placeholder:'Résiliation refusée, frais cachés, service non conforme ? Expliquez la situation et vos démarches.' },
+        when:    { label:'Date de souscription et faits *', placeholder:'Ex : Souscrit en ligne le 3 juin 2023. J\'ai tenté de résilier le 10 janvier 2024 mais…' },
+        party:   { label:'Prestataire / entreprise *', placeholder:'Ex : SFR, Spotify, Netflix, gym…', tip:'Indiquez le nom exact tel qu\'il figure sur vos relevés bancaires.' },
+      },
+      'locatif-caution': {
+        problem: { label:'Décrivez le litige *', placeholder:'Dépôt de garantie non restitué, restitution partielle injustifiée, retenues abusives ? Expliquez.' },
+        when:    { label:'Date de départ et état des lieux *', placeholder:'Ex : Quitté le logement le 28 février 2024. État des lieux signé le… Le bailleur n\'a pas restitué la caution dans les délais.' },
+        party:   { label:'Propriétaire / bailleur *', placeholder:'Nom du propriétaire ou de l\'agence immobilière', tip:'Indiquez le nom tel qu\'il figure sur votre contrat de bail.' },
+      },
+      'locatif-travaux': {
+        problem: { label:'Décrivez le problème *', placeholder:'Travaux non réalisés, malfaçons, nuisances ? Quel est l\'état du logement et l\'impact sur votre vie ?' },
+        when:    { label:'Depuis quand et démarches effectuées *', placeholder:'Ex : Depuis octobre 2023, le chauffage ne fonctionne plus. J\'ai contacté le propriétaire le… sans résultat.' },
+        party:   { label:'Propriétaire / bailleur *', placeholder:'Nom du propriétaire ou de l\'agence', tip:'Indiquez le nom tel qu\'il figure sur votre bail.' },
+      },
+      'locatif-expulsion': {
+        problem: { label:'Décrivez la situation *', placeholder:'Vous avez reçu un commandement de payer, une assignation, un jugement d\'expulsion ? Résumez la situation.' },
+        when:    { label:'Date de réception des documents *', placeholder:'Ex : Commandement de payer reçu le 5 mars 2024. L\'audience est fixée au… Le délai pour agir expire le…' },
+        party:   { label:'Propriétaire / bailleur *', placeholder:'Nom du propriétaire ou de l\'agence', tip:'Indiquez le nom tel qu\'il figure sur les actes officiels.' },
+      },
+      'travail-licenciement': {
+        problem: { label:'Décrivez les circonstances *', placeholder:'Pour quel motif avez-vous été licencié ? Ce licenciement vous semble-t-il abusif ou sans cause réelle et sérieuse ? Expliquez.' },
+        when:    { label:'Date de notification et dernière journée *', placeholder:'Ex : Lettre de licenciement reçue le 15 février 2024. Dernier jour de travail le… Préavis effectué / non effectué.' },
+        party:   { label:'Employeur *', placeholder:'Nom légal de l\'entreprise', tip:'Indiquez le nom tel qu\'il figure sur vos bulletins de salaire.' },
+      },
+      'travail-heures-sup': {
+        problem: { label:'Décrivez le problème *', placeholder:'Heures supplémentaires non payées, sous-payées, récupérations refusées ? Expliquez et estimez le nombre d\'heures concernées.' },
+        when:    { label:'Période concernée *', placeholder:'Ex : De janvier à mars 2024, en moyenne 10h supplémentaires par semaine, non déclarées et non rémunérées.' },
+        party:   { label:'Employeur *', placeholder:'Nom légal de l\'entreprise', tip:'Indiquez le nom tel qu\'il figure sur vos bulletins de salaire.' },
+      },
+      'travail-harcelement': {
+        problem: { label:'Décrivez les faits *', placeholder:'Quels comportements subissez-vous ? Qui en est l\'auteur ? Ces actes sont-ils répétés ? Quel impact sur votre santé ou votre travail ?' },
+        when:    { label:'Depuis quand et fréquence *', placeholder:'Ex : Depuis septembre 2023, mon responsable me fait des remarques humiliantes lors des réunions, environ 2 à 3 fois par semaine.' },
+        party:   { label:'Auteur du harcèlement *', placeholder:'Prénom, nom et poste de la personne', tip:'Si plusieurs personnes sont impliquées, citez la principale.' },
+      },
+      'routier-amende': {
+        problem: { label:'Décrivez l\'infraction contestée *', placeholder:'Quelle infraction vous est reprochée ? Pour quelle raison la contestez-vous (erreur, véhicule vendu, pas à bord, etc.) ?' },
+        when:    { label:'Date de l\'infraction et réception de l\'avis *', placeholder:'Ex : Infraction le 10 mars 2024. Avis de contravention reçu le 20 mars. Délai de contestation : 45 jours.' },
+        party:   { label:'Autorité verbalisatrice *', placeholder:'Ex : Police nationale, Gendarmerie, Préfecture…', tip:'Indiquez l\'autorité mentionnée sur l\'avis de contravention.' },
+      },
+      'routier-points': {
+        problem: { label:'Décrivez la situation *', placeholder:'Retrait de points contesté, permis invalidé, points non restitués ? Expliquez.' },
+        when:    { label:'Date de notification *', placeholder:'Ex : J\'ai reçu l\'avis de retrait de points le 15 mars 2024 suite à une infraction du… Je n\'ai jamais reçu l\'avis préalable.' },
+        party:   { label:'Autorité concernée *', placeholder:'Ex : Préfecture, ANTAI, Ministère de l\'Intérieur…', tip:'Indiquez l\'organisme mentionné sur votre courrier officiel.' },
+      },
+      'demeure-dette': {
+        problem: { label:'Décrivez la situation *', placeholder:'S\'agit-il d\'une somme à recouvrer ou d\'une dette contestée ? Quel est le contexte (prêt, impayé, prestation non réglée) ?' },
+        when:    { label:'Date d\'échéance et relances effectuées *', placeholder:'Ex : La facture était due le 1er janvier 2024. Relances envoyées les 7 jan, 20 jan. Aucun paiement à ce jour.' },
+        party:   { label:'Débiteur ou créancier *', placeholder:'Nom de la personne ou de l\'entreprise concernée', tip:'Selon votre situation : la personne qui vous doit de l\'argent ou celle à qui vous devez.' },
+      },
+      'demeure-avertissement': {
+        problem: { label:'Décrivez la situation *', placeholder:'Quelle mise en demeure avez-vous reçue ou souhaitez-vous envoyer ? Quel est le différend sous-jacent ?' },
+        when:    { label:'Date de réception et délai imparti *', placeholder:'Ex : Mise en demeure reçue le 5 avril 2024 avec un délai de 15 jours pour régulariser avant toute poursuite.' },
+        party:   { label:'Expéditeur / destinataire *', placeholder:'Nom de la personne ou de la société concernée', tip:'Indiquez le nom tel qu\'il figure sur le courrier officiel.' },
+      },
+      'famille-divorce': {
+        problem: { label:'Décrivez la situation *', placeholder:'Divorce à l\'amiable ou conflictuel ? Enfants communs ? Résidence alternée ? Biens immobiliers à partager ? Expliquez la situation globale.' },
+        when:    { label:'Date de mariage et de séparation *', placeholder:'Ex : Mariés le 12 juin 2015. Séparés depuis janvier 2024. Aucune procédure n\'a encore été engagée.' },
+        party:   { label:'Nom de l\'époux(se) *', placeholder:'Prénom et nom de votre conjoint(e)', tip:'Tel qu\'il figure sur votre acte de mariage.' },
+      },
+      'famille-pension': {
+        problem: { label:'Décrivez la situation *', placeholder:'Pension non versée, montant insuffisant, révision souhaitée à la hausse ou à la baisse ? Expliquez la situation.' },
+        when:    { label:'Depuis quand et montant actuel *', placeholder:'Ex : La pension de 400 €/mois fixée par jugement n\'a pas été versée depuis février 2024. Soit 2 mensualités impayées.' },
+        party:   { label:'Nom de l\'autre parent *', placeholder:'Prénom et nom', tip:'Tel qu\'il figure sur la décision de justice ou l\'accord homologué.' },
+      },
+    };
+    const getCtxFields = (cat, sub) =>
+      CONTEXT_FIELDS[cat + '-' + sub] || {
+        problem: { label:'Décrivez le problème en détail *', placeholder:'Expliquez ce qui s\'est passé, le contexte, et les démarches déjà effectuées…' },
+        when:    { label:'Dates et circonstances clés *', placeholder:'Indiquez les dates importantes et l\'enchaînement des faits…' },
+        party:   { label:'Partie adverse (nom / entreprise) *', placeholder:'Ex : Nom de la personne ou de l\'organisation concernée', tip:'Indiquez le nom exact tel qu\'il figure sur les documents officiels.' },
+      };
+
     /* ── InfoTip (bulle d'aide) ─────────────────────────── */
 
     const InfoTip = ({ text }) => {
@@ -1313,7 +1398,7 @@
       const updAddl = (k,v) => setData(p => ({...p, addl:{...p.addl,[k]:v}}));
 
       const canNext = () => {
-        if (step===1) return data.firstName && data.lastName && data.email && data.address;
+        if (step===1) return data.firstName && data.lastName && data.birthDate && data.birthPlace && data.nationality && data.address && data.phone && data.email && data.profession;
         if (step===2) return data.category && data.subcategory;
         if (step===3) return data.problemDescription && data.timeline && data.adverseParty;
         if (step===4) return addlFields.every(f => f.optional || (data.addl[f.id]||'').toString().trim());
@@ -1365,13 +1450,13 @@
               {step===1 && <>
                 <DmRow><DmHalf><DmField id="fn" label="Prénom *" placeholder="Jean" value={data.firstName} onChange={v=>upd('firstName',v)}/></DmHalf>
                      <DmHalf><DmField id="ln" label="Nom *"    placeholder="Dupont" value={data.lastName} onChange={v=>upd('lastName',v)}/></DmHalf></DmRow>
-                <DmRow><DmHalf><DmField id="bd" label="Date de naissance" placeholder="JJ/MM/AAAA" date value={data.birthDate} onChange={v=>upd('birthDate',v)}/></DmHalf>
-                     <DmHalf><DmField id="bp" label="Lieu de naissance" placeholder="Paris" optional value={data.birthPlace} onChange={v=>upd('birthPlace',v)}/></DmHalf></DmRow>
-                <DmField id="nat" label="Nationalité" placeholder="Française" optional value={data.nationality} onChange={v=>upd('nationality',v)}/>
-                <DmField id="addr" label="Adresse postale complète" placeholder="12 rue de la Paix, 75001 Paris" value={data.address} onChange={v=>upd('address',v)}/>
-                <DmRow><DmHalf><DmField id="tel" label="Téléphone" placeholder="06 12 34 56 78" optional value={data.phone} onChange={v=>upd('phone',v)}/></DmHalf>
+                <DmRow><DmHalf><DmField id="bd" label="Date de naissance *" placeholder="JJ/MM/AAAA" date value={data.birthDate} onChange={v=>upd('birthDate',v)}/></DmHalf>
+                     <DmHalf><DmField id="bp" label="Lieu de naissance *" placeholder="Paris" value={data.birthPlace} onChange={v=>upd('birthPlace',v)}/></DmHalf></DmRow>
+                <DmField id="nat" label="Nationalité *" placeholder="Française" value={data.nationality} onChange={v=>upd('nationality',v)}/>
+                <DmField id="addr" label="Adresse postale complète *" placeholder="12 rue de la Paix, 75001 Paris" value={data.address} onChange={v=>upd('address',v)}/>
+                <DmRow><DmHalf><DmField id="tel" label="Téléphone *" placeholder="06 12 34 56 78" value={data.phone} onChange={v=>upd('phone',v)}/></DmHalf>
                      <DmHalf><DmField id="em" label="Email *" placeholder="vous@exemple.com" value={data.email} onChange={v=>upd('email',v)}/></DmHalf></DmRow>
-                <DmField id="pro" label="Profession" placeholder="Ex : Salarié, Indépendant, Étudiant…" optional value={data.profession} onChange={v=>upd('profession',v)} tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."/>
+                <DmField id="pro" label="Profession *" placeholder="Ex : Salarié, Indépendant, Étudiant…" value={data.profession} onChange={v=>upd('profession',v)} tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."/>
               </>}
 
               {/* Step 2 — Catégorie */}
@@ -1402,13 +1487,16 @@
                 </>}
               </>}
 
-              {/* Step 3 — Contexte */}
-              {step===3 && <>
-                <DmField id="pb" label="Décrivez le problème en détail *" placeholder="Expliquez en plusieurs phrases ce qui s'est passé, le contexte, vos démarches déjà effectuées…" value={data.problemDescription} onChange={v=>upd('problemDescription',v)} textarea/>
-                <DmField id="tl" label="Chronologie — quand est-ce arrivé ? *" placeholder="Ex : Le 15 mars 2024, j'ai commandé… Le 2 avril, n'ayant reçu aucune nouvelle…" value={data.timeline} onChange={v=>upd('timeline',v)} textarea/>
-                <DmField id="ap" label="Partie adverse (nom / entreprise) *" placeholder="Ex : Amazon France SAS, Jean Martin…" value={data.adverseParty} onChange={v=>upd('adverseParty',v)} tooltip="Indiquez le nom exact tel qu'il figure sur les documents officiels."/>
-                <DmField id="aa" label="Adresse de la partie adverse" placeholder="Siège social ou adresse personnelle" optional value={data.adverseAddress} onChange={v=>upd('adverseAddress',v)}/>
-              </>}
+              {/* Step 3 — Contexte (adaptatif selon catégorie) */}
+              {step===3 && (()=>{
+                const ctx = getCtxFields(data.category, data.subcategory);
+                return <>
+                  <DmField id="pb" label={ctx.problem.label} placeholder={ctx.problem.placeholder} value={data.problemDescription} onChange={v=>upd('problemDescription',v)} textarea/>
+                  <DmField id="tl" label={ctx.when.label} placeholder={ctx.when.placeholder} value={data.timeline} onChange={v=>upd('timeline',v)} textarea/>
+                  <DmField id="ap" label={ctx.party.label} placeholder={ctx.party.placeholder} value={data.adverseParty} onChange={v=>upd('adverseParty',v)} tooltip={ctx.party.tip}/>
+                  <DmField id="aa" label="Adresse de la partie adverse" placeholder="Siège social ou adresse personnelle" optional value={data.adverseAddress} onChange={v=>upd('adverseAddress',v)}/>
+                </>;
+              })()}
 
               {/* Step 4 — Infos complémentaires */}
               {step===4 && <>
