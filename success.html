@@ -96,10 +96,18 @@
 
     <div class="check-circle">✓</div>
 
-    <h1>Bienvenue dans AvocAI Pro !</h1>
+    <h1 id="title">Bienvenue dans AvocAI Premium !</h1>
     <p>Votre abonnement est actif. Vous pouvez maintenant accéder à toutes les démarches officielles.</p>
 
     <a href="/" class="btn">Retour au chat →</a>
   </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get('plan') || localStorage.getItem('avocai_last_plan') || '';
+    const label = plan === 'pro_plus' ? 'AvocAI Premium +' : 'AvocAI Premium';
+    document.getElementById('title').textContent = 'Bienvenue dans ' + label + ' !';
+    document.title = label + ' — Bienvenue !';
+  </script>
 </body>
 </html>
