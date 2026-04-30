@@ -392,39 +392,28 @@
             </div>
           </div>
           <div style={{
-            background: '#252529', border: '1px solid rgba(0,0,0,0.35)', borderRadius: 10, overflow: 'hidden',
-            '--text-primary': '#ffffff',
-            '--text-body': 'rgba(255,255,255,0.88)',
-            '--text-muted': 'rgba(255,255,255,0.60)',
-            '--text-subtle': 'rgba(255,255,255,0.42)',
-            '--bg-panel': 'rgba(255,255,255,0.09)',
-            '--bg-surface': 'rgba(255,255,255,0.07)',
-            '--bg-surface-elevated': 'rgba(255,255,255,0.05)',
-            '--border-default': 'rgba(255,255,255,0.14)',
-            '--border-subtle': 'rgba(255,255,255,0.08)',
-            '--btn-bg': 'rgba(255,255,255,0.09)',
-            '--btn-border': 'rgba(255,255,255,0.14)',
+            background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-default)', borderRadius: 10, overflow: 'hidden',
           }}>
-            <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.10)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-panel)' }}>
               <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
                 <rect width="28" height="28" rx="4" fill="#5e6ad2" />
                 <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
               </svg>
-              <span style={{ fontSize: 12, fontWeight: 510, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: 0.5, fontFeatureSettings: '"cv01","ss03"' }}>Analyse juridique</span>
+              <span style={{ fontSize: 12, fontWeight: 510, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontFeatureSettings: '"cv01","ss03"' }}>Analyse juridique</span>
             </div>
             <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* Risk row */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Risque légal</div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Risque légal</div>
                   <RiskMeter level={4} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Chances de poursuites</div>
-                  <div style={{ fontSize: 15, fontWeight: 590, color: '#ffffff', fontFeatureSettings: '"cv01","ss03"' }}>38%</div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Chances de poursuites</div>
+                  <div style={{ fontSize: 15, fontWeight: 590, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>38%</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Délai légal</div>
+                  <div style={{ fontSize: 11, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Délai légal</div>
                   <div style={{ fontSize: 15, fontWeight: 510, color: '#f59e0b', fontFeatureSettings: '"cv01","ss03"' }}>Agissez rapidement</div>
                 </div>
               </div>
@@ -823,10 +812,9 @@
     const LoadingCard = () => (
       <div style={{ maxWidth: '88%' }}>
         <div style={{
-          background: '#191a1b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden',
-          '--text-muted': '#8a8f98',
+          background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden',
         }}>
-          <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 6, background: '#0f1011' }}>
+          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-panel)' }}>
             <svg width="14" height="14" viewBox="0 0 28 28" fill="none">
               <rect width="28" height="28" rx="4" fill="#5e6ad2" />
               <path d="M7 20L14 8L21 20H17.5L14 13.5L10.5 20H7Z" fill="white" fillOpacity="0.95" />
@@ -846,17 +834,7 @@
     const AIMessageCard = ({ msg }) => (
       <div style={{ maxWidth: '88%' }}>
         <div style={{
-          background: '#191a1b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden',
-          '--bg-panel': '#0f1011',
-          '--bg-surface': '#191a1b',
-          '--bg-surface-elevated': '#28282c',
-          '--text-primary': '#f7f8f8',
-          '--text-body': '#d0d6e0',
-          '--text-muted': '#8a8f98',
-          '--text-subtle': '#62666d',
-          '--border-default': 'rgba(255,255,255,0.08)',
-          '--border-subtle': 'rgba(255,255,255,0.05)',
-          '--btn-bg': 'rgba(255,255,255,0.02)',
+          background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden',
         }}>
           <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-panel)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
