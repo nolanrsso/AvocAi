@@ -387,7 +387,7 @@
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ background: '#5e6ad2', color: '#fff', borderRadius: 8, padding: '10px 14px', maxWidth: '80%', fontSize: 15, lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
-              J'ai reçu une amende pour excès de vitesse mais je n'étais pas au volant ce jour-là.
+              J'ai une altercation avec quelqu'un. J'ai besoin d'un avocat pour me défendre.
             </div>
           </div>
           <div style={{
@@ -416,20 +416,20 @@
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Risque légal</div>
-                  <RiskMeter level={3} />
+                  <RiskMeter level={4} />
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Chances de poursuites</div>
-                  <div style={{ fontSize: 15, fontWeight: 590, color: '#ffffff', fontFeatureSettings: '"cv01","ss03"' }}>12%</div>
+                  <div style={{ fontSize: 15, fontWeight: 590, color: '#ffffff', fontFeatureSettings: '"cv01","ss03"' }}>38%</div>
                 </div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 510, color: 'rgba(255,255,255,0.42)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, fontFeatureSettings: '"cv01","ss03"' }}>Délai légal</div>
-                  <div style={{ fontSize: 15, fontWeight: 510, color: '#f59e0b', fontFeatureSettings: '"cv01","ss03"' }}>45 jours pour contester</div>
+                  <div style={{ fontSize: 15, fontWeight: 510, color: '#f59e0b', fontFeatureSettings: '"cv01","ss03"' }}>Agissez rapidement</div>
                 </div>
               </div>
-              <SanctionsBlock amende="3 750 €" prison="3 mois" />
-              <LawBlock code="Art. L121-3" title="Code de la Route" excerpt="Le titulaire du certificat d'immatriculation peut s'exonérer de sa responsabilité en désignant l'auteur réel de l'infraction..." />
-              <PremiumBlock title="Contestez cette amende officiellement" body="Nous vous guidons pas à pas pour contester. Formulaire pré-rempli + lettre type inclus." cta="Commencer la démarche →" />
+              <SanctionsBlock amende="45 000 €" prison="3 ans" />
+              <LawBlock code="Art. 222-11" title="Code Pénal" excerpt="Les violences ayant entraîné une incapacité totale de travail pendant plus de huit jours sont punies de trois ans d'emprisonnement et de 45 000 euros d'amende..." />
+              <PremiumBlock title="Rentrez en contact avec un avocat" body="Nous vous mettons en relation avec un avocat spécialisé pour préparer votre défense." cta="Commencer la démarche →" />
             </div>
           </div>
         </div>
@@ -469,7 +469,7 @@
               Gratuit — Analysez votre situation maintenant
             </div>
             <h1 style={{ fontWeight: 510, color: 'var(--text-primary)', lineHeight: 1.05, letterSpacing: '-1.056px', margin: '0 0 20px', fontFeatureSettings: '"cv01","ss03"', fontSize: 55 }}>
-              Comprenez ce que vous risquez<br />Défendez-vous mieux.
+              Défends plus tes droits<br />AvocAI s'en charge pour toi.
             </h1>
             <p style={{ fontWeight: 400, color: 'var(--text-muted)', lineHeight: 1.6, letterSpacing: '-0.165px', maxWidth: 560, margin: '0 auto 36px', fontFeatureSettings: '"cv01","ss03"', fontSize: 17 }}>
               Décrivez n'importe quelle situation à AvocAI. Il analyse vos risques juridiques, évalue vos chances d'être contrôlé et vous explique les articles de loi qui s'appliquent gratuitement.
@@ -870,7 +870,8 @@
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <p style={{ fontSize: 14, color: 'var(--text-body)', lineHeight: 1.6, margin: 0, fontFeatureSettings: '"cv01","ss03"' }}>{msg.summary}</p>
 
-            {/* Risk panel */}
+            {/* Risk panel — masqué si pas de données réelles */}
+            {((msg.probability && msg.probability !== '0%') || msg.delai) && (
             <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 20 }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Risque légal</div>
@@ -882,11 +883,14 @@
                 <div style={{ fontSize: 15, fontWeight: 590, color: 'var(--text-body)', fontFeatureSettings: '"cv01","ss03"' }}>{msg.probability}</div>
               </div>
               )}
+              {msg.delai && (
               <div>
                 <div style={{ fontSize: 12, fontWeight: 510, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>Délai légal</div>
                 <div style={{ fontSize: 15, fontWeight: 510, color: '#f59e0b', fontFeatureSettings: '"cv01","ss03"' }}>{msg.delai}</div>
               </div>
+              )}
             </div>
+            )}
 
             {/* Sanctions */}
             {msg.sanctions && (msg.sanctions.amende_max || msg.sanctions.prison_max) && (

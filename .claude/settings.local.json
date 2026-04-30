@@ -17,7 +17,8 @@
       "Bash(npm install *)",
       "Bash(node -e ' *)",
       "Bash(git rm *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(node -e \"const db = require\\('./db'\\); const r = db.prepare\\(\\\\\"UPDATE users SET plan = 'admin' WHERE email = ?\\\\\"\\).run\\('nolan.rou.22.09@gmail.com'\\); console.log\\(r.changes > 0 ? '✓ Compte mis en admin' : '✗ Email introuvable \\(compte pas encore créé\\)'\\);\")"
     ]
   }
 }
