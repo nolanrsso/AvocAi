@@ -1140,36 +1140,36 @@
       'consommation-remboursement':[
         { id:'orderNumber',  label:'Numéro de commande',           placeholder:'CMD-123456', tooltip:"Visible sur votre email de confirmation ou dans votre espace client." },
         { id:'amount',       label:'Montant total payé (€)',        placeholder:'89.99', numeric:true },
-        { id:'productRef',   label:'Référence du produit / service',placeholder:'Ex : Aspirateur Dyson V11' },
+        { id:'productRef',   label:'Référence du produit / service',placeholder:'Ex : Aspirateur Dyson V11', optional:true },
         { id:'purchaseDate', label:"Date de l'achat",              placeholder:'JJ/MM/AAAA', date:true },
       ],
       'consommation-livraison':[
         { id:'orderNumber',   label:'Numéro de commande',         placeholder:'CMD-123456', tooltip:"Visible sur votre email de confirmation." },
         { id:'amount',        label:'Montant total payé (€)',      placeholder:'89.99', numeric:true },
         { id:'expectedDate',  label:'Date de livraison prévue',   placeholder:'JJ/MM/AAAA', date:true },
-        { id:'carrier',       label:'Transporteur',               placeholder:'Ex : Colissimo, DHL…' },
+        { id:'carrier',       label:'Transporteur',               placeholder:'Ex : Colissimo, DHL…', optional:true },
       ],
       'consommation-abonnement':[
         { id:'serviceName',          label:'Nom du service',                placeholder:'Ex : Netflix, Gym…' },
         { id:'amount',               label:'Montant prélevé (€/mois)',       placeholder:'9.99', numeric:true },
         { id:'subscriptionDate',     label:'Date de souscription',          placeholder:'JJ/MM/AAAA', date:true },
-        { id:'cancellationAttempt',  label:'Avez-vous tenté de résilier ?', placeholder:'Oui / Non — précisez la démarche' },
+        { id:'cancellationAttempt',  label:'Avez-vous tenté de résilier ?', placeholder:'Oui / Non — précisez la démarche', optional:true },
       ],
       'locatif-caution':[
         { id:'keysReturnDate',  label:'Date de remise des clés',          placeholder:'JJ/MM/AAAA', date:true, tooltip:"Date de l'état des lieux de sortie." },
         { id:'cautionAmount',   label:'Montant de la caution (€)',         placeholder:'800', numeric:true },
         { id:'rentalAddress',   label:'Adresse précise du logement loué', placeholder:'12 rue des Fleurs, 75011 Paris' },
-        { id:'landlordName',    label:'Nom du propriétaire / bailleur',   placeholder:'Jean Martin' },
+        { id:'landlordName',    label:'Nom du propriétaire / bailleur',   placeholder:'Jean Martin', optional:true },
       ],
       'locatif-travaux':[
         { id:'rentalAddress',    label:'Adresse du logement',                   placeholder:'12 rue des Fleurs, 75011 Paris' },
         { id:'worksDescription', label:'Description des travaux non effectués', placeholder:'Ex : Chaudière défectueuse depuis…', textarea:true },
-        { id:'reportDate',       label:'Date de signalement au bailleur',       placeholder:'JJ/MM/AAAA', date:true },
+        { id:'reportDate',       label:'Date de signalement au bailleur',       placeholder:'JJ/MM/AAAA', date:true, optional:true },
       ],
       'locatif-expulsion':[
         { id:'rentalAddress',  label:'Adresse du logement',                    placeholder:'12 rue des Fleurs, 75011 Paris' },
         { id:'expulsionDate',  label:"Date de l'expulsion ou du commandement", placeholder:'JJ/MM/AAAA', date:true },
-        { id:'reason',         label:'Motif invoqué par le bailleur',          placeholder:'Ex : Loyers impayés, reprise…' },
+        { id:'reason',         label:'Motif invoqué par le bailleur',          placeholder:'Ex : Loyers impayés, reprise…', optional:true },
       ],
       'travail-licenciement':[
         { id:'startDate',        label:'Date de début de contrat',                      placeholder:'JJ/MM/AAAA', date:true, tooltip:"Correspond à votre ancienneté dans l'entreprise." },
@@ -1180,54 +1180,54 @@
       'travail-heures-sup':[
         { id:'extraHours', label:"Nombre d'heures supplémentaires impayées", placeholder:'40', numeric:true },
         { id:'hourlyRate', label:'Taux horaire brut (€)',                    placeholder:'15.50', numeric:true },
-        { id:'period',     label:'Période concernée',                        placeholder:'Ex : Jan – Juin 2024' },
+        { id:'period',     label:'Période concernée',                        placeholder:'Ex : Jan – Juin 2024', optional:true },
       ],
       'travail-harcelement':[
         { id:'harassmentType', label:'Type de harcèlement',          placeholder:'Moral / Sexuel / Discrimination…' },
-        { id:'startDate',      label:'Depuis quand ?',               placeholder:'JJ/MM/AAAA', date:true },
-        { id:'witnesses',      label:'Témoins éventuels',            placeholder:'Nom(s) de collègues témoins' },
-        { id:'reportedTo',     label:'Avez-vous signalé en interne ?', placeholder:'RH, direction, représentant du personnel…' },
+        { id:'startDate',      label:'Depuis quand ?',               placeholder:'JJ/MM/AAAA', date:true, optional:true },
+        { id:'witnesses',      label:'Témoins éventuels',            placeholder:'Nom(s) de collègues témoins', optional:true },
+        { id:'reportedTo',     label:'Avez-vous signalé en interne ?', placeholder:'RH, direction, représentant du personnel…', optional:true },
       ],
       'routier-amende':[
         { id:'fineNumber',     label:"Numéro de l'avis de contravention", placeholder:'123456789012', numeric:true, tooltip:"Visible sur l'avis de contravention reçu." },
         { id:'plateNumber',    label:"Numéro d'immatriculation",           placeholder:'AB-123-CD' },
         { id:'infractionDate', label:"Date et heure de l'infraction",     placeholder:'JJ/MM/AAAA HH:MM', date:true },
-        { id:'infractionType', label:"Nature de l'infraction",            placeholder:'Radar / Stationnement / Feux…' },
+        { id:'infractionType', label:"Nature de l'infraction",            placeholder:'Radar / Stationnement / Feux…', optional:true },
       ],
       'routier-points':[
-        { id:'licenseNumber',  label:'Numéro de permis de conduire', placeholder:'12AA12345' },
+        { id:'licenseNumber',  label:'Numéro de permis de conduire', placeholder:'12AA12345', optional:true },
         { id:'pointsLost',     label:'Nombre de points retirés',     placeholder:'2', numeric:true },
         { id:'infractionDate', label:"Date de l'infraction",         placeholder:'JJ/MM/AAAA', date:true },
         { id:'contestReason',  label:'Motif de contestation',        placeholder:"Ex : Je n'étais pas au volant…" },
       ],
       'demeure-dette':[
         { id:'amount',    label:'Montant exact de la dette (€)',           placeholder:'1500', numeric:true, tooltip:"Indiquez le montant total dû." },
-        { id:'dueDate',   label:'Échéance de paiement initialement prévue', placeholder:'JJ/MM/AAAA', date:true },
-        { id:'proofType', label:'Type de preuve de la dette',              placeholder:'Contrat, devis signé, reconnaissance de dette…' },
+        { id:'dueDate',   label:'Échéance de paiement initialement prévue', placeholder:'JJ/MM/AAAA', date:true, optional:true },
+        { id:'proofType', label:'Type de preuve de la dette',              placeholder:'Contrat, devis signé, reconnaissance de dette…', optional:true },
       ],
       'demeure-avertissement':[
         { id:'subject',   label:"Objet de l'avertissement",       placeholder:'Ex : Non-respect des obligations contractuelles' },
-        { id:'amount',    label:'Montant en jeu (€) si applicable', placeholder:'0', numeric:true },
-        { id:'deadline',  label:'Délai accordé pour se conformer', placeholder:'Ex : 15 jours' },
+        { id:'amount',    label:'Montant en jeu (€) si applicable', placeholder:'0', numeric:true, optional:true },
+        { id:'deadline',  label:'Délai accordé pour se conformer', placeholder:'Ex : 15 jours', optional:true },
       ],
       'famille-divorce':[
         { id:'marriageDate', label:'Date de mariage',                placeholder:'JJ/MM/AAAA', date:true },
         { id:'divorceType',  label:'Type de divorce souhaité',       placeholder:'À l\'amiable / Pour faute…' },
         { id:'children',     label:'Nombre d\'enfants mineurs',      placeholder:'0', numeric:true },
-        { id:'commonProperty', label:'Biens communs à partager ?',  placeholder:'Oui (décrivez) / Non' },
+        { id:'commonProperty', label:'Biens communs à partager ?',  placeholder:'Oui (décrivez) / Non', optional:true },
       ],
       'famille-pension':[
         { id:'currentAmount',    label:'Montant actuel de la pension (€/mois)', placeholder:'300', numeric:true },
         { id:'childrenCount',    label:'Nombre d\'enfants concernés',            placeholder:'2', numeric:true },
         { id:'lastJudgmentDate', label:'Date du dernier jugement',              placeholder:'JJ/MM/AAAA', date:true, tooltip:"Date figurant sur le jugement de divorce ou de séparation." },
-        { id:'changeReason',     label:'Motif de la modification',              placeholder:'Ex : Perte d\'emploi, changement de garde…' },
+        { id:'changeReason',     label:'Motif de la modification',              placeholder:'Ex : Perte d\'emploi, changement de garde…', optional:true },
       ],
     };
 
     const getAddlFields = (cat, sub) =>
       ADDL[cat + '-' + sub] || [
         { id:'amount',  label:'Montant en jeu (€)',          placeholder:'0', numeric:true },
-        { id:'details', label:'Informations supplémentaires', placeholder:'Tout détail utile à votre dossier…', textarea:true },
+        { id:'details', label:'Informations supplémentaires', placeholder:'Tout détail utile à votre dossier…', textarea:true, optional:true },
       ];
 
     /* ── InfoTip (bulle d'aide) ─────────────────────────── */
@@ -1255,17 +1255,15 @@
     const dmInp = { width:'100%', padding:'10px 13px', background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:8, color:'var(--text-primary)', fontSize:14, fontFamily:'Inter,sans-serif', outline:'none', transition:'border-color 0.15s', boxSizing:'border-box' };
     const dmLbl = { fontSize:12, fontWeight:510, color:'var(--text-muted)', marginBottom:5, display:'flex', alignItems:'center', gap:0 };
 
-    const DmField = ({ label, placeholder, value, onChange, tooltip, textarea, numeric, date }) => {
+    const DmField = ({ label, placeholder, value, onChange, tooltip, textarea, numeric, date, optional }) => {
       const handleChange = (raw) => {
         if (date) {
-          // Garde uniquement les chiffres, insère les / automatiquement
           const digits = raw.replace(/\D/g, '').slice(0, 8);
           let fmt = digits;
           if (digits.length >= 5) fmt = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4);
           else if (digits.length >= 3) fmt = digits.slice(0,2) + '/' + digits.slice(2);
           onChange(fmt);
         } else if (numeric) {
-          // Garde uniquement chiffres et un seul point décimal
           const cleaned = raw.replace(/[^0-9.]/g, '').replace(/\.{2,}/g, '.').replace(/(\.\d*)\./, '$1');
           onChange(cleaned);
         } else {
@@ -1274,7 +1272,11 @@
       };
       return (
         <div style={{marginBottom:14}}>
-          <label style={dmLbl}>{label}{tooltip && <InfoTip text={tooltip}/>}</label>
+          <label style={dmLbl}>
+            {label}
+            {optional && <span style={{fontSize:11, color:'var(--text-subtle)', fontWeight:400, marginLeft:5}}>(optionnel)</span>}
+            {tooltip && <InfoTip text={tooltip}/>}
+          </label>
           {textarea
             ? <textarea value={value} onChange={e=>handleChange(e.target.value)} placeholder={placeholder} rows={4}
                 style={{...dmInp, resize:'vertical', minHeight:88}}
@@ -1311,9 +1313,10 @@
       const updAddl = (k,v) => setData(p => ({...p, addl:{...p.addl,[k]:v}}));
 
       const canNext = () => {
-        if (step===1) return data.firstName && data.lastName && data.email;
+        if (step===1) return data.firstName && data.lastName && data.email && data.address;
         if (step===2) return data.category && data.subcategory;
         if (step===3) return data.problemDescription && data.timeline && data.adverseParty;
+        if (step===4) return addlFields.every(f => f.optional || (data.addl[f.id]||'').toString().trim());
         return true;
       };
 
@@ -1363,12 +1366,12 @@
                 <DmRow><DmHalf><DmField id="fn" label="Prénom *" placeholder="Jean" value={data.firstName} onChange={v=>upd('firstName',v)}/></DmHalf>
                      <DmHalf><DmField id="ln" label="Nom *"    placeholder="Dupont" value={data.lastName} onChange={v=>upd('lastName',v)}/></DmHalf></DmRow>
                 <DmRow><DmHalf><DmField id="bd" label="Date de naissance" placeholder="JJ/MM/AAAA" date value={data.birthDate} onChange={v=>upd('birthDate',v)}/></DmHalf>
-                     <DmHalf><DmField id="bp" label="Lieu de naissance" placeholder="Paris" value={data.birthPlace} onChange={v=>upd('birthPlace',v)}/></DmHalf></DmRow>
-                <DmField id="nat" label="Nationalité" placeholder="Française" value={data.nationality} onChange={v=>upd('nationality',v)}/>
+                     <DmHalf><DmField id="bp" label="Lieu de naissance" placeholder="Paris" optional value={data.birthPlace} onChange={v=>upd('birthPlace',v)}/></DmHalf></DmRow>
+                <DmField id="nat" label="Nationalité" placeholder="Française" optional value={data.nationality} onChange={v=>upd('nationality',v)}/>
                 <DmField id="addr" label="Adresse postale complète" placeholder="12 rue de la Paix, 75001 Paris" value={data.address} onChange={v=>upd('address',v)}/>
-                <DmRow><DmHalf><DmField id="tel" label="Téléphone" placeholder="06 12 34 56 78" value={data.phone} onChange={v=>upd('phone',v)}/></DmHalf>
+                <DmRow><DmHalf><DmField id="tel" label="Téléphone" placeholder="06 12 34 56 78" optional value={data.phone} onChange={v=>upd('phone',v)}/></DmHalf>
                      <DmHalf><DmField id="em" label="Email *" placeholder="vous@exemple.com" value={data.email} onChange={v=>upd('email',v)}/></DmHalf></DmRow>
-                <DmField id="pro" label="Profession" placeholder="Ex : Salarié, Indépendant, Étudiant…" value={data.profession} onChange={v=>upd('profession',v)} tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."/>
+                <DmField id="pro" label="Profession" placeholder="Ex : Salarié, Indépendant, Étudiant…" optional value={data.profession} onChange={v=>upd('profession',v)} tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."/>
               </>}
 
               {/* Step 2 — Catégorie */}
@@ -1404,14 +1407,14 @@
                 <DmField id="pb" label="Décrivez le problème en détail *" placeholder="Expliquez en plusieurs phrases ce qui s'est passé, le contexte, vos démarches déjà effectuées…" value={data.problemDescription} onChange={v=>upd('problemDescription',v)} textarea/>
                 <DmField id="tl" label="Chronologie — quand est-ce arrivé ? *" placeholder="Ex : Le 15 mars 2024, j'ai commandé… Le 2 avril, n'ayant reçu aucune nouvelle…" value={data.timeline} onChange={v=>upd('timeline',v)} textarea/>
                 <DmField id="ap" label="Partie adverse (nom / entreprise) *" placeholder="Ex : Amazon France SAS, Jean Martin…" value={data.adverseParty} onChange={v=>upd('adverseParty',v)} tooltip="Indiquez le nom exact tel qu'il figure sur les documents officiels."/>
-                <DmField id="aa" label="Adresse de la partie adverse" placeholder="Siège social ou adresse personnelle" value={data.adverseAddress} onChange={v=>upd('adverseAddress',v)}/>
+                <DmField id="aa" label="Adresse de la partie adverse" placeholder="Siège social ou adresse personnelle" optional value={data.adverseAddress} onChange={v=>upd('adverseAddress',v)}/>
               </>}
 
               {/* Step 4 — Infos complémentaires */}
               {step===4 && <>
                 <div style={{fontSize:13, color:'var(--text-muted)', marginBottom:16, lineHeight:1.5}}>Ces informations spécifiques permettent de générer des documents précis et adaptés à votre dossier.</div>
                 {addlFields.map(f=>(
-                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} date={f.date} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
+                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} date={f.date} optional={f.optional} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
                 ))}
               </>}
 
@@ -1432,7 +1435,7 @@
                       style={{padding:'9px 24px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:14, fontWeight:590, cursor:'pointer'}}
                       onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
                       onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
-                      Passer à Premium +
+                      Générer mon dossier
                     </button>
                 }
               </div>
@@ -1560,6 +1563,14 @@
             ) : (
               /* ── Version floutée + upsell ── */
               <>
+                {/* Nom visible au-dessus du flou */}
+                <div style={{position:'absolute', top:20, left:0, right:0, display:'flex', justifyContent:'center', zIndex:5, pointerEvents:'none'}}>
+                  <div style={{background:'var(--bg-surface)', border:'1px solid var(--border-default)', borderRadius:9999, padding:'5px 18px', display:'flex', alignItems:'center', gap:8, boxShadow:'0 2px 12px rgba(0,0,0,0.1)'}}>
+                    <span style={{fontSize:13, fontWeight:590, color:'var(--text-primary)'}}>{data?.firstName} {data?.lastName}</span>
+                    <span style={{fontSize:12, color:'var(--text-subtle)'}}>·</span>
+                    <span style={{fontSize:12, color:'var(--text-muted)'}}>{subLabel}</span>
+                  </div>
+                </div>
                 <div style={{position:'absolute', inset:0, overflowY:'auto', padding:'32px 24px', filter:'blur(5px)', userSelect:'none', pointerEvents:'none'}}>
                   <DossierDocument data={data} subLabel={subLabel}/>
                 </div>
