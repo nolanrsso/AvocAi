@@ -1607,7 +1607,8 @@
             { t: 'Dossier juridique complet débloqué', bold: true },
             { t: '100 analyses / jour' },
             { t: 'Historique illimité' },
-            { t: 'Lettres types générées par IA' },
+            { t: 'Lettres types générées par IA', cross: true },
+            { t: 'Suivi de dossier pas à pas', cross: true },
             { t: 'Contactez un avocat adapté' },
             { t: 'Support 24h' },
           ],
@@ -1619,6 +1620,7 @@
           priceW: '4', priceM: '12',
           features: [
             { t: 'Tout le plan Premium', bold: true },
+            { t: 'Lettres types générées par IA' },
             { t: 'Formulaires officiels pré-remplis' },
             { t: 'Aide au remplissage de démarches' },
             { t: 'Suivi de dossier pas à pas' },
@@ -1671,8 +1673,8 @@
                   </div>
                   <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:20}}>
                     {p.features.map(f=>(
-                      <div key={f.t} style={{display:'flex', alignItems:'flex-start', gap:8, fontSize:13, color: f.bold?'var(--text-primary)':'var(--text-body)', fontWeight: f.bold?600:400}}>
-                        <span style={{color:'#27a644', flexShrink:0, marginTop:1}}>✓</span>{f.t}
+                      <div key={f.t} style={{display:'flex', alignItems:'flex-start', gap:8, fontSize:13, color: f.cross?'var(--text-subtle)': f.bold?'var(--text-primary)':'var(--text-body)', fontWeight: f.bold?600:400}}>
+                        <span style={{color: f.cross?'#ef4444':'#27a644', flexShrink:0, marginTop:1}}>{f.cross?'✕':'✓'}</span>{f.t}
                       </div>
                     ))}
                   </div>
