@@ -271,7 +271,9 @@
 
     /* ── Navbar ─────────────────────────────────────────── */
 
-    const Navbar = ({ page, setPage, theme, toggleTheme, onNavSection }) => (
+    const PLAN_LABEL = { pro: 'Premium', pro_plus: 'Premium +' };
+
+    const Navbar = ({ page, setPage, theme, toggleTheme, onNavSection, user }) => (
       <nav style={{
         position: 'sticky', top: 0, zIndex: 100,
         height: 56, background: 'var(--bg-panel)',
@@ -312,20 +314,40 @@
           ))}
         </div>
 
-        {/* Right buttons — toujours les mêmes */}
+        {/* Right buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 'auto' }}>
           {getToken() ? (
             <>
+              {/* Badge plan si premium */}
+              {(user?.plan === 'pro' || user?.plan === 'pro_plus') && (
+                <span style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: 0.3,
+                  padding: '3px 9px', borderRadius: 9999,
+                  background: 'rgba(94,106,210,0.15)', color: '#7170ff',
+                  border: '1px solid rgba(113,112,255,0.3)',
+                  fontFeatureSettings: '"cv01","ss03"',
+                }}>
+                  {PLAN_LABEL[user.plan]}
+                </span>
+              )}
               <button className="nav-login" onClick={logout} style={{
                 padding: '6px 14px', borderRadius: 6, border: '1px solid var(--btn-border)',
                 background: 'var(--btn-bg)', cursor: 'pointer',
                 fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
               }}>Se déconnecter</button>
-              <button className="nav-try-btn" onClick={scrollToPricing}
-                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
-                onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-              >Passer à Pro</button>
+              {(user?.plan === 'pro' || user?.plan === 'pro_plus') ? (
+                <button className="nav-try-btn" onClick={() => setPage('chat')}
+                  style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                >Mon dossier</button>
+              ) : (
+                <button className="nav-try-btn" onClick={scrollToPricing}
+                  style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                >Passer à Pro</button>
+              )}
             </>
           ) : (
             <>
@@ -1799,7 +1821,7 @@
 
     /* ── Chat Interface ──────────────────────────────────── */
 
-    const ChatInterface = ({ setPage, heroMessage, onHeroMessageConsumed }) => {
+    const ChatInterface = ({ setPage, heroMessage, onHeroMessageConsumed, onUserUpdate }) => {
       const [messages, setMessages] = useState(() => {
         const saved = sessionStorage.getItem('avocai_guest_session');
         if (saved && getToken()) {
@@ -1843,6 +1865,7 @@
             const me = await meRes.json();
             setUser(me.user);
             localStorage.setItem('avocai_user', JSON.stringify(me.user));
+            onUserUpdate?.(me.user);
             const [cRes, qRes] = await Promise.all([
               fetch('/api/conversations', { headers: authHeaders() }),
               fetch('/api/quota/status', { headers: authHeaders() }),
@@ -2426,6 +2449,7 @@
       const [theme, setTheme] = useState(() => localStorage.getItem('avocai_theme') || 'dark');
       const [heroMessage, setHeroMessage] = useState(null);
       const [scrollTarget, setScrollTarget] = useState(null);
+      const [appUser, setAppUser] = useState(getStoredUser);
 
       useEffect(() => {
         if (page === 'landing' && scrollTarget) {
@@ -2448,10 +2472,10 @@
 
       return (
         <div>
-          <Navbar page={page} setPage={setPage} theme={theme} toggleTheme={toggleTheme} onNavSection={id => { setScrollTarget(id); setPage('landing'); }} />
+          <Navbar page={page} setPage={setPage} theme={theme} toggleTheme={toggleTheme} onNavSection={id => { setScrollTarget(id); setPage('landing'); }} user={appUser} />
           {page === 'landing'
             ? <LandingPage setPage={setPage} onHeroSend={handleHeroSend} />
-            : <ChatInterface setPage={setPage} heroMessage={heroMessage} onHeroMessageConsumed={() => setHeroMessage(null)} />}
+            : <ChatInterface setPage={setPage} heroMessage={heroMessage} onHeroMessageConsumed={() => setHeroMessage(null)} onUserUpdate={setAppUser} />}
         </div>
       );
     };
