@@ -831,7 +831,7 @@
 
     /* ── Chat: AI Message Card ──────────────────────────── */
 
-    const AIMessageCard = ({ msg }) => (
+    const AIMessageCard = ({ msg, onStartDemarche }) => (
       <div style={{ maxWidth: '88%' }}>
         <div style={{
           background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, overflow: 'hidden',
@@ -906,7 +906,7 @@
                 title={msg.premiumTitle || "Démarche officielle disponible"}
                 body={msg.premiumBody || "Nous vous guidons pas à pas pour finaliser cette démarche."}
                 cta="Commencer la démarche →"
-                onCta={openDemarche}
+                onCta={onStartDemarche}
               />
             )}
           </div>
@@ -2013,7 +2013,7 @@
                           </div>
                         </div>
                       ) : (
-                        <AIMessageCard msg={msg} />
+                        <AIMessageCard msg={msg} onStartDemarche={openDemarche} />
                       )}
                     </div>
                   ))}
