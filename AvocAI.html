@@ -1141,22 +1141,22 @@
         { id:'orderNumber',  label:'Numéro de commande',           placeholder:'CMD-123456', tooltip:"Visible sur votre email de confirmation ou dans votre espace client." },
         { id:'amount',       label:'Montant total payé (€)',        placeholder:'89.99', numeric:true },
         { id:'productRef',   label:'Référence du produit / service',placeholder:'Ex : Aspirateur Dyson V11' },
-        { id:'purchaseDate', label:"Date de l'achat",              placeholder:'JJ/MM/AAAA' },
+        { id:'purchaseDate', label:"Date de l'achat",              placeholder:'JJ/MM/AAAA', date:true },
       ],
       'consommation-livraison':[
         { id:'orderNumber',   label:'Numéro de commande',         placeholder:'CMD-123456', tooltip:"Visible sur votre email de confirmation." },
         { id:'amount',        label:'Montant total payé (€)',      placeholder:'89.99', numeric:true },
-        { id:'expectedDate',  label:'Date de livraison prévue',   placeholder:'JJ/MM/AAAA' },
+        { id:'expectedDate',  label:'Date de livraison prévue',   placeholder:'JJ/MM/AAAA', date:true },
         { id:'carrier',       label:'Transporteur',               placeholder:'Ex : Colissimo, DHL…' },
       ],
       'consommation-abonnement':[
         { id:'serviceName',          label:'Nom du service',                placeholder:'Ex : Netflix, Gym…' },
         { id:'amount',               label:'Montant prélevé (€/mois)',       placeholder:'9.99', numeric:true },
-        { id:'subscriptionDate',     label:'Date de souscription',          placeholder:'JJ/MM/AAAA' },
+        { id:'subscriptionDate',     label:'Date de souscription',          placeholder:'JJ/MM/AAAA', date:true },
         { id:'cancellationAttempt',  label:'Avez-vous tenté de résilier ?', placeholder:'Oui / Non — précisez la démarche' },
       ],
       'locatif-caution':[
-        { id:'keysReturnDate',  label:'Date de remise des clés',          placeholder:'JJ/MM/AAAA', tooltip:"Date de l'état des lieux de sortie." },
+        { id:'keysReturnDate',  label:'Date de remise des clés',          placeholder:'JJ/MM/AAAA', date:true, tooltip:"Date de l'état des lieux de sortie." },
         { id:'cautionAmount',   label:'Montant de la caution (€)',         placeholder:'800', numeric:true },
         { id:'rentalAddress',   label:'Adresse précise du logement loué', placeholder:'12 rue des Fleurs, 75011 Paris' },
         { id:'landlordName',    label:'Nom du propriétaire / bailleur',   placeholder:'Jean Martin' },
@@ -1164,18 +1164,18 @@
       'locatif-travaux':[
         { id:'rentalAddress',    label:'Adresse du logement',                   placeholder:'12 rue des Fleurs, 75011 Paris' },
         { id:'worksDescription', label:'Description des travaux non effectués', placeholder:'Ex : Chaudière défectueuse depuis…', textarea:true },
-        { id:'reportDate',       label:'Date de signalement au bailleur',       placeholder:'JJ/MM/AAAA' },
+        { id:'reportDate',       label:'Date de signalement au bailleur',       placeholder:'JJ/MM/AAAA', date:true },
       ],
       'locatif-expulsion':[
         { id:'rentalAddress',  label:'Adresse du logement',                    placeholder:'12 rue des Fleurs, 75011 Paris' },
-        { id:'expulsionDate',  label:"Date de l'expulsion ou du commandement", placeholder:'JJ/MM/AAAA' },
+        { id:'expulsionDate',  label:"Date de l'expulsion ou du commandement", placeholder:'JJ/MM/AAAA', date:true },
         { id:'reason',         label:'Motif invoqué par le bailleur',          placeholder:'Ex : Loyers impayés, reprise…' },
       ],
       'travail-licenciement':[
-        { id:'startDate',        label:'Date de début de contrat',                      placeholder:'JJ/MM/AAAA', tooltip:"Correspond à votre ancienneté dans l'entreprise." },
+        { id:'startDate',        label:'Date de début de contrat',                      placeholder:'JJ/MM/AAAA', date:true, tooltip:"Correspond à votre ancienneté dans l'entreprise." },
         { id:'lastSalary',       label:'Dernier salaire brut mensuel (€)',              placeholder:'2500', numeric:true },
         { id:'dismissalReason',  label:'Motif indiqué sur la lettre de licenciement',  placeholder:'Ex : Faute grave, raison économique…' },
-        { id:'dismissalDate',    label:'Date du licenciement',                          placeholder:'JJ/MM/AAAA' },
+        { id:'dismissalDate',    label:'Date du licenciement',                          placeholder:'JJ/MM/AAAA', date:true },
       ],
       'travail-heures-sup':[
         { id:'extraHours', label:"Nombre d'heures supplémentaires impayées", placeholder:'40', numeric:true },
@@ -1184,25 +1184,25 @@
       ],
       'travail-harcelement':[
         { id:'harassmentType', label:'Type de harcèlement',          placeholder:'Moral / Sexuel / Discrimination…' },
-        { id:'startDate',      label:'Depuis quand ?',               placeholder:'JJ/MM/AAAA' },
+        { id:'startDate',      label:'Depuis quand ?',               placeholder:'JJ/MM/AAAA', date:true },
         { id:'witnesses',      label:'Témoins éventuels',            placeholder:'Nom(s) de collègues témoins' },
         { id:'reportedTo',     label:'Avez-vous signalé en interne ?', placeholder:'RH, direction, représentant du personnel…' },
       ],
       'routier-amende':[
         { id:'fineNumber',     label:"Numéro de l'avis de contravention", placeholder:'123456789012', numeric:true, tooltip:"Visible sur l'avis de contravention reçu." },
         { id:'plateNumber',    label:"Numéro d'immatriculation",           placeholder:'AB-123-CD' },
-        { id:'infractionDate', label:"Date et heure de l'infraction",     placeholder:'JJ/MM/AAAA HH:MM' },
+        { id:'infractionDate', label:"Date et heure de l'infraction",     placeholder:'JJ/MM/AAAA HH:MM', date:true },
         { id:'infractionType', label:"Nature de l'infraction",            placeholder:'Radar / Stationnement / Feux…' },
       ],
       'routier-points':[
         { id:'licenseNumber',  label:'Numéro de permis de conduire', placeholder:'12AA12345' },
         { id:'pointsLost',     label:'Nombre de points retirés',     placeholder:'2', numeric:true },
-        { id:'infractionDate', label:"Date de l'infraction",         placeholder:'JJ/MM/AAAA' },
+        { id:'infractionDate', label:"Date de l'infraction",         placeholder:'JJ/MM/AAAA', date:true },
         { id:'contestReason',  label:'Motif de contestation',        placeholder:"Ex : Je n'étais pas au volant…" },
       ],
       'demeure-dette':[
         { id:'amount',    label:'Montant exact de la dette (€)',           placeholder:'1500', numeric:true, tooltip:"Indiquez le montant total dû." },
-        { id:'dueDate',   label:'Échéance de paiement initialement prévue', placeholder:'JJ/MM/AAAA' },
+        { id:'dueDate',   label:'Échéance de paiement initialement prévue', placeholder:'JJ/MM/AAAA', date:true },
         { id:'proofType', label:'Type de preuve de la dette',              placeholder:'Contrat, devis signé, reconnaissance de dette…' },
       ],
       'demeure-avertissement':[
@@ -1211,7 +1211,7 @@
         { id:'deadline',  label:'Délai accordé pour se conformer', placeholder:'Ex : 15 jours' },
       ],
       'famille-divorce':[
-        { id:'marriageDate', label:'Date de mariage',                placeholder:'JJ/MM/AAAA' },
+        { id:'marriageDate', label:'Date de mariage',                placeholder:'JJ/MM/AAAA', date:true },
         { id:'divorceType',  label:'Type de divorce souhaité',       placeholder:'À l\'amiable / Pour faute…' },
         { id:'children',     label:'Nombre d\'enfants mineurs',      placeholder:'0', numeric:true },
         { id:'commonProperty', label:'Biens communs à partager ?',  placeholder:'Oui (décrivez) / Non' },
@@ -1219,7 +1219,7 @@
       'famille-pension':[
         { id:'currentAmount',    label:'Montant actuel de la pension (€/mois)', placeholder:'300', numeric:true },
         { id:'childrenCount',    label:'Nombre d\'enfants concernés',            placeholder:'2', numeric:true },
-        { id:'lastJudgmentDate', label:'Date du dernier jugement',              placeholder:'JJ/MM/AAAA', tooltip:"Date figurant sur le jugement de divorce ou de séparation." },
+        { id:'lastJudgmentDate', label:'Date du dernier jugement',              placeholder:'JJ/MM/AAAA', date:true, tooltip:"Date figurant sur le jugement de divorce ou de séparation." },
         { id:'changeReason',     label:'Motif de la modification',              placeholder:'Ex : Perte d\'emploi, changement de garde…' },
       ],
     };
@@ -1255,9 +1255,16 @@
     const dmInp = { width:'100%', padding:'10px 13px', background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:8, color:'var(--text-primary)', fontSize:14, fontFamily:'Inter,sans-serif', outline:'none', transition:'border-color 0.15s', boxSizing:'border-box' };
     const dmLbl = { fontSize:12, fontWeight:510, color:'var(--text-muted)', marginBottom:5, display:'flex', alignItems:'center', gap:0 };
 
-    const DmField = ({ label, placeholder, value, onChange, tooltip, textarea, numeric }) => {
+    const DmField = ({ label, placeholder, value, onChange, tooltip, textarea, numeric, date }) => {
       const handleChange = (raw) => {
-        if (numeric) {
+        if (date) {
+          // Garde uniquement les chiffres, insère les / automatiquement
+          const digits = raw.replace(/\D/g, '').slice(0, 8);
+          let fmt = digits;
+          if (digits.length >= 5) fmt = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4);
+          else if (digits.length >= 3) fmt = digits.slice(0,2) + '/' + digits.slice(2);
+          onChange(fmt);
+        } else if (numeric) {
           // Garde uniquement chiffres et un seul point décimal
           const cleaned = raw.replace(/[^0-9.]/g, '').replace(/\.{2,}/g, '.').replace(/(\.\d*)\./, '$1');
           onChange(cleaned);
@@ -1273,7 +1280,7 @@
                 style={{...dmInp, resize:'vertical', minHeight:88}}
                 onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
             : <input value={value} onChange={e=>handleChange(e.target.value)} placeholder={placeholder} style={dmInp}
-                inputMode={numeric ? 'decimal' : 'text'}
+                inputMode={date || numeric ? 'numeric' : 'text'}
                 onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
           }
         </div>
@@ -1355,7 +1362,7 @@
               {step===1 && <>
                 <DmRow><DmHalf><DmField id="fn" label="Prénom *" placeholder="Jean" value={data.firstName} onChange={v=>upd('firstName',v)}/></DmHalf>
                      <DmHalf><DmField id="ln" label="Nom *"    placeholder="Dupont" value={data.lastName} onChange={v=>upd('lastName',v)}/></DmHalf></DmRow>
-                <DmRow><DmHalf><DmField id="bd" label="Date de naissance" placeholder="JJ/MM/AAAA" value={data.birthDate} onChange={v=>upd('birthDate',v)}/></DmHalf>
+                <DmRow><DmHalf><DmField id="bd" label="Date de naissance" placeholder="JJ/MM/AAAA" date value={data.birthDate} onChange={v=>upd('birthDate',v)}/></DmHalf>
                      <DmHalf><DmField id="bp" label="Lieu de naissance" placeholder="Paris" value={data.birthPlace} onChange={v=>upd('birthPlace',v)}/></DmHalf></DmRow>
                 <DmField id="nat" label="Nationalité" placeholder="Française" value={data.nationality} onChange={v=>upd('nationality',v)}/>
                 <DmField id="addr" label="Adresse postale complète" placeholder="12 rue de la Paix, 75001 Paris" value={data.address} onChange={v=>upd('address',v)}/>
@@ -1404,7 +1411,7 @@
               {step===4 && <>
                 <div style={{fontSize:13, color:'var(--text-muted)', marginBottom:16, lineHeight:1.5}}>Ces informations spécifiques permettent de générer des documents précis et adaptés à votre dossier.</div>
                 {addlFields.map(f=>(
-                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
+                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} date={f.date} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
                 ))}
               </>}
 
@@ -1491,71 +1498,192 @@
 
     /* ── DemarcheResult (flou + upsell Premium) ─────────── */
 
-    const DemarcheResult = ({ data, onClose, onUpgrade }) => {
+    const DOSSIER_KEY = 'avocai_dossier_pending';
+
+    /* Contenu partagé du document (flouté ou non) */
+    const DossierDocument = ({ data, subLabel }) => {
+      const today = new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+      return (
+        <div style={{maxWidth:660, margin:'0 auto', background:'var(--bg-surface)', borderRadius:12, padding:'48px 56px', border:'1px solid var(--border-default)'}}>
+          <div style={{textAlign:'right', marginBottom:32, fontSize:13, color:'var(--text-muted)', lineHeight:1.8}}>
+            {data?.firstName} {data?.lastName}<br/>{data?.address||'Votre adresse'}<br/>Le {today}
+          </div>
+          <div style={{textAlign:'center', marginBottom:32}}>
+            <div style={{fontWeight:700, fontSize:17, color:'var(--text-primary)', textTransform:'uppercase', letterSpacing:1, marginBottom:6}}>{subLabel}</div>
+            <div style={{fontSize:12, color:'var(--text-muted)'}}>Envoi par lettre recommandée avec accusé de réception</div>
+          </div>
+          <div style={{fontSize:14, lineHeight:2.1, color:'var(--text-body)'}}>
+            <p style={{marginBottom:16}}>Madame, Monsieur,</p>
+            <p style={{marginBottom:16}}>Je soussigné(e), {data?.firstName} {data?.lastName}, né(e) le {data?.birthDate||'…'} à {data?.birthPlace||'…'}, demeurant au {data?.address||'…'}, vous adresse la présente par lettre recommandée avec accusé de réception.</p>
+            <p style={{marginBottom:16}}>En application des dispositions légales en vigueur et conformément à la jurisprudence constante, je vous mets en demeure de procéder, dans un délai de <strong>8 jours</strong> à compter de la réception des présentes, à l'exécution de vos obligations.</p>
+            <p style={{marginBottom:16}}>À défaut de réponse satisfaisante dans ce délai, je me verrai dans l'obligation de saisir la juridiction compétente afin de faire valoir mes droits, et ce sans autre avertissement préalable. Des intérêts moratoires seront également exigibles conformément aux articles 1231-6 et 1231-7 du Code civil.</p>
+            <p style={{marginBottom:16}}>Dans l'attente d'une réponse rapide, je reste disponible pour tout règlement amiable de ce litige.</p>
+            <p>Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées.</p>
+            <br/><p style={{fontWeight:510}}>{data?.firstName} {data?.lastName}</p>
+          </div>
+          <div style={{marginTop:40, padding:'16px 20px', background:'var(--bg-panel)', borderRadius:8, fontSize:12, color:'var(--text-muted)'}}>
+            <strong style={{color:'var(--text-primary)'}}>Pièces justificatives recommandées :</strong><br/>
+            Facture / bon de commande · Échanges email · Preuve de paiement · Accusé de réception
+          </div>
+        </div>
+      );
+    };
+
+    const DemarcheResult = ({ data, onClose, onUpgrade, isPro }) => {
       const catLabel = DEMARCHE_CATS.find(c=>c.id===data?.category)?.label || 'Démarche juridique';
       const subLabel = DEMARCHE_CATS.find(c=>c.id===data?.category)?.subs?.find(s=>s.id===data?.subcategory)?.label || catLabel;
-      const today = new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
 
       return (
         <div style={{position:'fixed', inset:0, zIndex:600, background:'var(--bg-page)', display:'flex', flexDirection:'column', overflow:'hidden'}}>
           {/* Header */}
-          <div style={{height:52, background:'var(--bg-panel)', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', padding:'0 24px', gap:16, flexShrink:0}}>
-            <span style={{fontSize:14, fontWeight:510, color:'var(--text-primary)'}}>📄 Dossier généré — {subLabel}</span>
+          <div style={{height:52, background:'var(--bg-panel)', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', padding:'0 24px', gap:12, flexShrink:0}}>
+            <span style={{fontSize:14, fontWeight:510, color:'var(--text-primary)'}}>📄 {subLabel}</span>
+            {isPro && <span style={{fontSize:11, fontWeight:600, color:'#27a644', background:'rgba(39,166,68,0.1)', border:'1px solid rgba(39,166,68,0.25)', borderRadius:20, padding:'2px 10px'}}>✓ Dossier débloqué</span>}
             <div style={{flex:1}}/>
-            <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)'}}>✕ Fermer</button>
+            <button onClick={()=>{ if(isPro) localStorage.removeItem(DOSSIER_KEY); onClose(); }} style={{background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)'}}>✕ Fermer</button>
           </div>
 
-          {/* Document preview (flou) + overlay */}
+          {/* Document */}
           <div style={{flex:1, overflow:'hidden', position:'relative'}}>
 
-            {/* Document flouté */}
-            <div style={{position:'absolute', inset:0, overflowY:'auto', padding:'32px 24px', filter:'blur(5px)', userSelect:'none', pointerEvents:'none'}}>
-              <div style={{maxWidth:660, margin:'0 auto', background:'var(--bg-surface)', borderRadius:12, padding:'48px 56px', border:'1px solid var(--border-default)'}}>
-                <div style={{textAlign:'right', marginBottom:32, fontSize:13, color:'var(--text-muted)', lineHeight:1.8}}>
-                  {data?.firstName} {data?.lastName}<br/>{data?.address||'Votre adresse'}<br/>Le {today}
-                </div>
-                <div style={{textAlign:'center', marginBottom:32}}>
-                  <div style={{fontWeight:700, fontSize:17, color:'var(--text-primary)', textTransform:'uppercase', letterSpacing:1, marginBottom:6}}>{subLabel}</div>
-                  <div style={{fontSize:12, color:'var(--text-muted)'}}>Envoi par lettre recommandée avec accusé de réception</div>
-                </div>
-                <div style={{fontSize:14, lineHeight:2.1, color:'var(--text-body)'}}>
-                  <p style={{marginBottom:16}}>Madame, Monsieur,</p>
-                  <p style={{marginBottom:16}}>Je soussigné(e), {data?.firstName} {data?.lastName}, né(e) le {data?.birthDate||'…'} à {data?.birthPlace||'…'}, demeurant au {data?.address||'…'}, vous adresse la présente par lettre recommandée avec accusé de réception.</p>
-                  <p style={{marginBottom:16}}>En application des dispositions légales en vigueur et conformément à la jurisprudence constante, je vous mets en demeure de procéder, dans un délai de <strong>8 jours</strong> à compter de la réception des présentes, à l'exécution de vos obligations.</p>
-                  <p style={{marginBottom:16}}>À défaut de réponse satisfaisante dans ce délai, je me verrai dans l'obligation de saisir la juridiction compétente afin de faire valoir mes droits, et ce sans autre avertissement préalable. Des intérêts moratoires seront également exigibles conformément aux articles 1231-6 et 1231-7 du Code civil.</p>
-                  <p style={{marginBottom:16}}>Dans l'attente d'une réponse rapide, je reste disponible pour tout règlement amiable de ce litige.</p>
-                  <p>Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées.</p>
-                  <br/><p style={{fontWeight:510}}>{data?.firstName} {data?.lastName}</p>
-                </div>
-                <div style={{marginTop:40, padding:'16px 20px', background:'var(--bg-panel)', borderRadius:8, fontSize:12, color:'var(--text-muted)'}}>
-                  <strong style={{color:'var(--text-primary)'}}>Pièces justificatives recommandées :</strong><br/>
-                  Facture / bon de commande · Échanges email · Preuve de paiement · Accusé de réception
-                </div>
-              </div>
-            </div>
-
-            {/* Overlay Premium */}
-            <div style={{position:'absolute', inset:0, background:'linear-gradient(to bottom, transparent 0%, var(--bg-page) 38%)', display:'flex', alignItems:'flex-end', justifyContent:'center', paddingBottom:48, zIndex:10}}>
-              <div style={{background:'var(--bg-surface)', border:'1px solid var(--border-default)', borderRadius:16, padding:'30px 36px', textAlign:'center', maxWidth:430, width:'100%', margin:'0 24px', boxShadow:'0 24px 80px rgba(0,0,0,0.2)'}}>
-                <div style={{width:48, height:48, borderRadius:12, background:'rgba(94,106,210,0.12)', border:'1px solid rgba(94,106,210,0.28)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px', fontSize:22}}>📄</div>
-                <div style={{fontSize:11, fontWeight:600, color:'#7170ff', textTransform:'uppercase', letterSpacing:0.8, marginBottom:8}}>✦ Premium requis</div>
-                <div style={{fontSize:20, fontWeight:590, color:'var(--text-primary)', marginBottom:10, letterSpacing:'-0.2px'}}>Votre dossier est prêt</div>
-                <div style={{fontSize:14, color:'var(--text-muted)', lineHeight:1.65, marginBottom:24}}>
-                  Passez au Premium pour télécharger votre <strong style={{color:'var(--text-body)'}}>lettre officielle</strong>, accéder aux démarches guidées et envoyer votre courrier en recommandé.
-                </div>
-                <div style={{display:'flex', flexDirection:'column', gap:10}}>
-                  <button onClick={onUpgrade}
-                    style={{width:'100%', padding:'13px 0', borderRadius:10, border:'none', background:'#5e6ad2', color:'#fff', fontSize:15, fontWeight:590, cursor:'pointer'}}
-                    onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
-                    onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
-                    Passer à Premium — Débloquer le dossier
-                  </button>
-                  <button onClick={onClose}
-                    style={{width:'100%', padding:'11px 0', borderRadius:10, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:14, fontWeight:510, cursor:'pointer'}}>
+            {isPro ? (
+              /* ── Version débloquée ── */
+              <div style={{position:'absolute', inset:0, overflowY:'auto', padding:'32px 24px'}}>
+                <DossierDocument data={data} subLabel={subLabel}/>
+                <div style={{maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end', gap:10}}>
+                  <button onClick={()=>{ localStorage.removeItem(DOSSIER_KEY); onClose(); }}
+                    style={{padding:'10px 22px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:14, fontWeight:510, cursor:'pointer'}}>
                     Fermer
                   </button>
                 </div>
               </div>
+            ) : (
+              /* ── Version floutée + upsell ── */
+              <>
+                <div style={{position:'absolute', inset:0, overflowY:'auto', padding:'32px 24px', filter:'blur(5px)', userSelect:'none', pointerEvents:'none'}}>
+                  <DossierDocument data={data} subLabel={subLabel}/>
+                </div>
+                <div style={{position:'absolute', inset:0, background:'linear-gradient(to bottom, transparent 0%, var(--bg-page) 38%)', display:'flex', alignItems:'flex-end', justifyContent:'center', paddingBottom:48, zIndex:10}}>
+                  <div style={{background:'var(--bg-surface)', border:'1px solid var(--border-default)', borderRadius:16, padding:'30px 36px', textAlign:'center', maxWidth:430, width:'100%', margin:'0 24px', boxShadow:'0 24px 80px rgba(0,0,0,0.2)'}}>
+                    <div style={{width:48, height:48, borderRadius:12, background:'rgba(94,106,210,0.12)', border:'1px solid rgba(94,106,210,0.28)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px', fontSize:22}}>📄</div>
+                    <div style={{fontSize:11, fontWeight:600, color:'#7170ff', textTransform:'uppercase', letterSpacing:0.8, marginBottom:8}}>✦ Premium requis</div>
+                    <div style={{fontSize:20, fontWeight:590, color:'var(--text-primary)', marginBottom:10, letterSpacing:'-0.2px'}}>Votre dossier est prêt</div>
+                    <div style={{fontSize:14, color:'var(--text-muted)', lineHeight:1.65, marginBottom:24}}>
+                      Passez au Premium pour télécharger votre <strong style={{color:'var(--text-body)'}}>lettre officielle</strong>, accéder aux démarches guidées et envoyer votre courrier en recommandé.
+                    </div>
+                    <div style={{display:'flex', flexDirection:'column', gap:10}}>
+                      <button onClick={onUpgrade}
+                        style={{width:'100%', padding:'13px 0', borderRadius:10, border:'none', background:'#5e6ad2', color:'#fff', fontSize:15, fontWeight:590, cursor:'pointer'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
+                        onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
+                        Choisir mon plan Premium
+                      </button>
+                      <button onClick={onClose}
+                        style={{width:'100%', padding:'11px 0', borderRadius:10, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:14, fontWeight:510, cursor:'pointer'}}>
+                        Fermer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    /* ── DemarchePlanPicker ──────────────────────────────── */
+
+    const DemarchePlanPicker = ({ onClose, onSelect }) => {
+      const [monthly, setMonthly] = useState(false);
+
+      const plans = [
+        {
+          id: 'pro',
+          name: 'Premium',
+          badge: null,
+          priceW: '3', priceM: '10',
+          features: [
+            { t: 'Dossier juridique complet débloqué', bold: true },
+            { t: '100 analyses / jour' },
+            { t: 'Historique illimité' },
+            { t: 'Lettres types générées par IA' },
+            { t: 'Contactez un avocat adapté' },
+            { t: 'Support 24h' },
+          ],
+        },
+        {
+          id: 'pro_plus',
+          name: 'Premium +',
+          badge: 'Recommandé',
+          priceW: '4', priceM: '12',
+          features: [
+            { t: 'Tout le plan Premium', bold: true },
+            { t: 'Formulaires officiels pré-remplis' },
+            { t: 'Aide au remplissage de démarches' },
+            { t: 'Suivi de dossier pas à pas' },
+            { t: 'Alertes délais légaux' },
+            { t: 'Support prioritaire 24h' },
+          ],
+        },
+      ];
+
+      return (
+        <div style={{position:'fixed', inset:0, zIndex:700, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16}}
+          onClick={e=>{ if(e.target===e.currentTarget) onClose(); }}>
+          <div style={{background:'var(--bg-surface)', border:'1px solid var(--border-default)', borderRadius:20, width:'100%', maxWidth:620, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.35)'}}>
+
+            {/* Header */}
+            <div style={{padding:'24px 28px 0', display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+              <div>
+                <div style={{fontSize:11, fontWeight:600, color:'#7170ff', textTransform:'uppercase', letterSpacing:0.5, marginBottom:4}}>✦ Débloquer votre dossier</div>
+                <div style={{fontSize:22, fontWeight:590, color:'var(--text-primary)', letterSpacing:'-0.3px'}}>Choisissez votre plan</div>
+                <div style={{fontSize:14, color:'var(--text-muted)', marginTop:4}}>Vos informations sont sauvegardées — accédez au dossier immédiatement après l'upgrade.</div>
+              </div>
+              <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:20, padding:4, marginTop:-2}}>✕</button>
+            </div>
+
+            {/* Toggle semaine / mois */}
+            <div style={{display:'flex', justifyContent:'center', margin:'20px 28px 0'}}>
+              <div style={{display:'inline-flex', background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:9999, padding:3}}>
+                {['Semaine','Mois'].map((l,i)=>(
+                  <button key={l} onClick={()=>setMonthly(i===1)}
+                    style={{padding:'6px 22px', borderRadius:9999, border:'none', fontSize:13, fontWeight:510, cursor:'pointer', transition:'all 0.15s',
+                      background: (i===1)===monthly ? '#5e6ad2' : 'transparent',
+                      color: (i===1)===monthly ? '#fff' : 'var(--text-muted)',
+                    }}>{l}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Plan cards */}
+            <div style={{display:'flex', gap:14, padding:'20px 28px 28px', flexWrap:'wrap'}}>
+              {plans.map(p=>(
+                <div key={p.id} style={{flex:1, minWidth:220, border:`2px solid ${p.badge?'#5e6ad2':'var(--border-default)'}`, borderRadius:14, padding:'22px 20px', position:'relative', background: p.badge?'rgba(94,106,210,0.04)':'var(--bg-page)'}}>
+                  {p.badge && (
+                    <div style={{position:'absolute', top:-11, left:'50%', transform:'translateX(-50%)', background:'#5e6ad2', color:'#fff', fontSize:11, fontWeight:600, padding:'2px 14px', borderRadius:9999, whiteSpace:'nowrap'}}>{p.badge}</div>
+                  )}
+                  <div style={{fontSize:16, fontWeight:590, color:'var(--text-primary)', marginBottom:6}}>{p.name}</div>
+                  <div style={{display:'flex', alignItems:'baseline', gap:2, marginBottom:18}}>
+                    <span style={{fontSize:38, fontWeight:500, color:'var(--text-primary)', letterSpacing:'-1px'}}>{monthly ? p.priceM : p.priceW}</span>
+                    <span style={{fontSize:17, fontWeight:500, color:'var(--text-primary)'}}>€</span>
+                    <span style={{fontSize:14, color:'var(--text-muted)', marginLeft:4}}>/ {monthly?'mois':'semaine'}</span>
+                  </div>
+                  <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:20}}>
+                    {p.features.map(f=>(
+                      <div key={f.t} style={{display:'flex', alignItems:'flex-start', gap:8, fontSize:13, color: f.bold?'var(--text-primary)':'var(--text-body)', fontWeight: f.bold?600:400}}>
+                        <span style={{color:'#27a644', flexShrink:0, marginTop:1}}>✓</span>{f.t}
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={()=>onSelect(p.id, monthly)}
+                    style={{width:'100%', padding:'11px 0', borderRadius:9, border: p.badge?'none':'1px solid var(--border-default)', background: p.badge?'#5e6ad2':'transparent', color: p.badge?'#fff':'var(--text-body)', fontSize:14, fontWeight:590, cursor:'pointer', transition:'all 0.15s'}}
+                    onMouseEnter={e=>{ e.currentTarget.style.background = p.badge?'#828fff':'var(--bg-surface-elevated)'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background = p.badge?'#5e6ad2':'transparent'; }}>
+                    Choisir {p.name}
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -1637,6 +1765,17 @@
                   setConvTitle(title);
                   const cRes2 = await fetch('/api/conversations', { headers: authHeaders() });
                   if (cRes2.ok) { const { conversations: convs2 } = await cRes2.json(); setConversations(convs2); }
+                }
+              } catch {}
+            }
+            // Restaurer dossier en attente si l'utilisateur vient d'upgrader
+            const planVal = me.user?.plan;
+            if (planVal === 'pro' || planVal === 'pro_plus') {
+              try {
+                const pending = localStorage.getItem(DOSSIER_KEY);
+                if (pending) {
+                  setDemarcheData(JSON.parse(pending));
+                  setDemarcheState('result');
                 }
               } catch {}
             }
@@ -1874,7 +2013,11 @@
           {demarcheState === 'form' && (
             <DemarcheFormModal
               onClose={() => setDemarcheState(null)}
-              onSubmit={(formData) => { setDemarcheData(formData); setDemarcheState('loading'); }}
+              onSubmit={(formData) => {
+                localStorage.setItem(DOSSIER_KEY, JSON.stringify(formData));
+                setDemarcheData(formData);
+                setDemarcheState('loading');
+              }}
             />
           )}
           {demarcheState === 'loading' && (
@@ -1883,8 +2026,17 @@
           {demarcheState === 'result' && (
             <DemarcheResult
               data={demarcheData}
+              isPro={user?.plan === 'pro' || user?.plan === 'pro_plus'}
               onClose={() => setDemarcheState(null)}
-              onUpgrade={() => { setDemarcheState(null); window.location.href = '/checkout?plan=pro'; }}
+              onUpgrade={() => setDemarcheState('plan')}
+            />
+          )}
+          {demarcheState === 'plan' && (
+            <DemarchePlanPicker
+              onClose={() => setDemarcheState('result')}
+              onSelect={(plan, isMonthly) => {
+                window.location.href = '/checkout?plan=' + plan + '&billing=' + (isMonthly ? 'monthly' : 'weekly');
+              }}
             />
           )}
 
