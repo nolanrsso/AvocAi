@@ -1251,6 +1251,25 @@
 
     /* ── DemarcheFormModal ──────────────────────────────── */
 
+    /* ── Helpers partagés (hors composant pour éviter le remontage) ── */
+    const dmInp = { width:'100%', padding:'10px 13px', background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:8, color:'var(--text-primary)', fontSize:14, fontFamily:'Inter,sans-serif', outline:'none', transition:'border-color 0.15s', boxSizing:'border-box' };
+    const dmLbl = { fontSize:12, fontWeight:510, color:'var(--text-muted)', marginBottom:5, display:'flex', alignItems:'center', gap:0 };
+
+    const DmField = ({ label, placeholder, value, onChange, tooltip, textarea }) => (
+      <div style={{marginBottom:14}}>
+        <label style={dmLbl}>{label}{tooltip && <InfoTip text={tooltip}/>}</label>
+        {textarea
+          ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={4}
+              style={{...dmInp, resize:'vertical', minHeight:88}}
+              onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
+          : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={dmInp}
+              onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
+        }
+      </div>
+    );
+    const DmRow  = ({children}) => <div style={{display:'flex', gap:12}}>{children}</div>;
+    const DmHalf = ({children}) => <div style={{flex:1,minWidth:0}}>{children}</div>;
+
     const DRAFT_KEY = 'avocai_demarche_draft';
 
     const DemarcheFormModal = ({ onClose, onSubmit }) => {
@@ -1267,16 +1286,10 @@
           addl:{},
         };
       });
-      const [saved, setSaved] = useState(false);
       const STEPS = ['Identité','Type','Contexte','Détails'];
 
       const upd = (k,v) => setData(p => ({...p,[k]:v}));
       const updAddl = (k,v) => setData(p => ({...p, addl:{...p.addl,[k]:v}}));
-
-      const saveDraft = () => {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
-        setSaved(true); setTimeout(()=>setSaved(false), 2000);
-      };
 
       const canNext = () => {
         if (step===1) return data.firstName && data.lastName && data.email;
@@ -1287,25 +1300,6 @@
 
       const curCat = DEMARCHE_CATS.find(c=>c.id===data.category);
       const addlFields = getAddlFields(data.category, data.subcategory);
-
-      const inp = { width:'100%', padding:'10px 13px', background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:8, color:'var(--text-primary)', fontSize:14, fontFamily:'Inter,sans-serif', outline:'none', transition:'border-color 0.15s', boxSizing:'border-box' };
-      const lbl = { fontSize:12, fontWeight:510, color:'var(--text-muted)', marginBottom:5, display:'flex', alignItems:'center', gap:0 };
-
-      const Field = ({ id, label, placeholder, value, onChange, tooltip, textarea }) => (
-        <div style={{marginBottom:14}}>
-          <label style={lbl}>{label}{tooltip && <InfoTip text={tooltip}/>}</label>
-          {textarea
-            ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={4}
-                style={{...inp, resize:'vertical', minHeight:88}}
-                onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
-            : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={inp}
-                onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
-          }
-        </div>
-      );
-
-      const Row = ({children}) => <div style={{display:'flex', gap:12}}>{children}</div>;
-      const Half = ({children}) => <div style={{flex:1,minWidth:0}}>{children}</div>;
 
       return (
         <div style={{ position:'fixed', inset:0, zIndex:600, background:'rgba(0,0,0,0.58)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
@@ -1347,15 +1341,15 @@
 
               {/* Step 1 — Identité */}
               {step===1 && <>
-                <Row><Half><Field id="fn" label="Prénom *" placeholder="Jean" value={data.firstName} onChange={v=>upd('firstName',v)}/></Half>
-                     <Half><Field id="ln" label="Nom *"    placeholder="Dupont" value={data.lastName} onChange={v=>upd('lastName',v)}/></Half></Row>
-                <Row><Half><Field id="bd" label="Date de naissance" placeholder="JJ/MM/AAAA" value={data.birthDate} onChange={v=>upd('birthDate',v)}/></Half>
-                     <Half><Field id="bp" label="Lieu de naissance" placeholder="Paris" value={data.birthPlace} onChange={v=>upd('birthPlace',v)}/></Half></Row>
-                <Field id="nat" label="Nationalité" placeholder="Française" value={data.nationality} onChange={v=>upd('nationality',v)}/>
-                <Field id="addr" label="Adresse postale complète" placeholder="12 rue de la Paix, 75001 Paris" value={data.address} onChange={v=>upd('address',v)}/>
-                <Row><Half><Field id="tel" label="Téléphone" placeholder="06 12 34 56 78" value={data.phone} onChange={v=>upd('phone',v)}/></Half>
-                     <Half><Field id="em" label="Email *" placeholder="vous@exemple.com" value={data.email} onChange={v=>upd('email',v)}/></Half></Row>
-                <Field id="pro" label="Profession" placeholder="Ex : Salarié, Indépendant, Étudiant…" value={data.profession} onChange={v=>upd('profession',v)} tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."/>
+                <DmRow><DmHalf><DmField id="fn" label="Prénom *" placeholder="Jean" value={data.firstName} onChange={v=>upd('firstName',v)}/></DmHalf>
+                     <DmHalf><DmField id="ln" label="Nom *"    placeholder="Dupont" value={data.lastName} onChange={v=>upd('lastName',v)}/></DmHalf></DmRow>
+                <DmRow><DmHalf><DmField id="bd" label="Date de naissance" placeholder="JJ/MM/AAAA" value={data.birthDate} onChange={v=>upd('birthDate',v)}/></DmHalf>
+                     <DmHalf><DmField id="bp" label="Lieu de naissance" placeholder="Paris" value={data.birthPlace} onChange={v=>upd('birthPlace',v)}/></DmHalf></DmRow>
+                <DmField id="nat" label="Nationalité" placeholder="Française" value={data.nationality} onChange={v=>upd('nationality',v)}/>
+                <DmField id="addr" label="Adresse postale complète" placeholder="12 rue de la Paix, 75001 Paris" value={data.address} onChange={v=>upd('address',v)}/>
+                <DmRow><DmHalf><DmField id="tel" label="Téléphone" placeholder="06 12 34 56 78" value={data.phone} onChange={v=>upd('phone',v)}/></DmHalf>
+                     <DmHalf><DmField id="em" label="Email *" placeholder="vous@exemple.com" value={data.email} onChange={v=>upd('email',v)}/></DmHalf></DmRow>
+                <DmField id="pro" label="Profession" placeholder="Ex : Salarié, Indépendant, Étudiant…" value={data.profession} onChange={v=>upd('profession',v)} tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."/>
               </>}
 
               {/* Step 2 — Catégorie */}
@@ -1388,27 +1382,24 @@
 
               {/* Step 3 — Contexte */}
               {step===3 && <>
-                <Field id="pb" label="Décrivez le problème en détail *" placeholder="Expliquez en plusieurs phrases ce qui s'est passé, le contexte, vos démarches déjà effectuées…" value={data.problemDescription} onChange={v=>upd('problemDescription',v)} textarea/>
-                <Field id="tl" label="Chronologie — quand est-ce arrivé ? *" placeholder="Ex : Le 15 mars 2024, j'ai commandé… Le 2 avril, n'ayant reçu aucune nouvelle…" value={data.timeline} onChange={v=>upd('timeline',v)} textarea/>
-                <Field id="ap" label="Partie adverse (nom / entreprise) *" placeholder="Ex : Amazon France SAS, Jean Martin…" value={data.adverseParty} onChange={v=>upd('adverseParty',v)} tooltip="Indiquez le nom exact tel qu'il figure sur les documents officiels."/>
-                <Field id="aa" label="Adresse de la partie adverse" placeholder="Siège social ou adresse personnelle" value={data.adverseAddress} onChange={v=>upd('adverseAddress',v)}/>
+                <DmField id="pb" label="Décrivez le problème en détail *" placeholder="Expliquez en plusieurs phrases ce qui s'est passé, le contexte, vos démarches déjà effectuées…" value={data.problemDescription} onChange={v=>upd('problemDescription',v)} textarea/>
+                <DmField id="tl" label="Chronologie — quand est-ce arrivé ? *" placeholder="Ex : Le 15 mars 2024, j'ai commandé… Le 2 avril, n'ayant reçu aucune nouvelle…" value={data.timeline} onChange={v=>upd('timeline',v)} textarea/>
+                <DmField id="ap" label="Partie adverse (nom / entreprise) *" placeholder="Ex : Amazon France SAS, Jean Martin…" value={data.adverseParty} onChange={v=>upd('adverseParty',v)} tooltip="Indiquez le nom exact tel qu'il figure sur les documents officiels."/>
+                <DmField id="aa" label="Adresse de la partie adverse" placeholder="Siège social ou adresse personnelle" value={data.adverseAddress} onChange={v=>upd('adverseAddress',v)}/>
               </>}
 
               {/* Step 4 — Infos complémentaires */}
               {step===4 && <>
                 <div style={{fontSize:13, color:'var(--text-muted)', marginBottom:16, lineHeight:1.5}}>Ces informations spécifiques permettent de générer des documents précis et adaptés à votre dossier.</div>
                 {addlFields.map(f=>(
-                  <Field key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
+                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
                 ))}
               </>}
 
             </div>
 
             {/* ─ Footer ─ */}
-            <div style={{padding:'14px 24px', borderTop:'1px solid var(--border-subtle)', flexShrink:0, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-              <button onClick={saveDraft} style={{background:'none', border:'none', cursor:'pointer', fontSize:13, color: saved?'#27a644':'var(--text-subtle)', display:'flex', alignItems:'center', gap:5}}>
-                {saved?'✓ Sauvegardé':'💾 Sauvegarder pour plus tard'}
-              </button>
+            <div style={{padding:'14px 24px', borderTop:'1px solid var(--border-subtle)', flexShrink:0, display:'flex', justifyContent:'flex-end', alignItems:'center'}}>
               <div style={{display:'flex', gap:10}}>
                 {step>1 && <button onClick={()=>setStep(s=>s-1)} style={{padding:'9px 18px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:14, fontWeight:510, cursor:'pointer'}}>← Précédent</button>}
                 {step<4
