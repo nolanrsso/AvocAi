@@ -1139,25 +1139,25 @@
     const ADDL = {
       'consommation-remboursement':[
         { id:'orderNumber',  label:'Numéro de commande',           placeholder:'CMD-123456', tooltip:"Visible sur votre email de confirmation ou dans votre espace client." },
-        { id:'amount',       label:'Montant total payé (€)',        placeholder:'89.99' },
+        { id:'amount',       label:'Montant total payé (€)',        placeholder:'89.99', numeric:true },
         { id:'productRef',   label:'Référence du produit / service',placeholder:'Ex : Aspirateur Dyson V11' },
         { id:'purchaseDate', label:"Date de l'achat",              placeholder:'JJ/MM/AAAA' },
       ],
       'consommation-livraison':[
         { id:'orderNumber',   label:'Numéro de commande',         placeholder:'CMD-123456', tooltip:"Visible sur votre email de confirmation." },
-        { id:'amount',        label:'Montant total payé (€)',      placeholder:'89.99' },
+        { id:'amount',        label:'Montant total payé (€)',      placeholder:'89.99', numeric:true },
         { id:'expectedDate',  label:'Date de livraison prévue',   placeholder:'JJ/MM/AAAA' },
         { id:'carrier',       label:'Transporteur',               placeholder:'Ex : Colissimo, DHL…' },
       ],
       'consommation-abonnement':[
         { id:'serviceName',          label:'Nom du service',                placeholder:'Ex : Netflix, Gym…' },
-        { id:'amount',               label:'Montant prélevé (€/mois)',       placeholder:'9.99' },
+        { id:'amount',               label:'Montant prélevé (€/mois)',       placeholder:'9.99', numeric:true },
         { id:'subscriptionDate',     label:'Date de souscription',          placeholder:'JJ/MM/AAAA' },
         { id:'cancellationAttempt',  label:'Avez-vous tenté de résilier ?', placeholder:'Oui / Non — précisez la démarche' },
       ],
       'locatif-caution':[
         { id:'keysReturnDate',  label:'Date de remise des clés',          placeholder:'JJ/MM/AAAA', tooltip:"Date de l'état des lieux de sortie." },
-        { id:'cautionAmount',   label:'Montant de la caution (€)',         placeholder:'800' },
+        { id:'cautionAmount',   label:'Montant de la caution (€)',         placeholder:'800', numeric:true },
         { id:'rentalAddress',   label:'Adresse précise du logement loué', placeholder:'12 rue des Fleurs, 75011 Paris' },
         { id:'landlordName',    label:'Nom du propriétaire / bailleur',   placeholder:'Jean Martin' },
       ],
@@ -1173,13 +1173,13 @@
       ],
       'travail-licenciement':[
         { id:'startDate',        label:'Date de début de contrat',                      placeholder:'JJ/MM/AAAA', tooltip:"Correspond à votre ancienneté dans l'entreprise." },
-        { id:'lastSalary',       label:'Dernier salaire brut mensuel (€)',              placeholder:'2500' },
+        { id:'lastSalary',       label:'Dernier salaire brut mensuel (€)',              placeholder:'2500', numeric:true },
         { id:'dismissalReason',  label:'Motif indiqué sur la lettre de licenciement',  placeholder:'Ex : Faute grave, raison économique…' },
         { id:'dismissalDate',    label:'Date du licenciement',                          placeholder:'JJ/MM/AAAA' },
       ],
       'travail-heures-sup':[
-        { id:'extraHours', label:"Nombre d'heures supplémentaires impayées", placeholder:'Ex : 40 heures' },
-        { id:'hourlyRate', label:'Taux horaire brut (€)',                    placeholder:'15.50' },
+        { id:'extraHours', label:"Nombre d'heures supplémentaires impayées", placeholder:'40', numeric:true },
+        { id:'hourlyRate', label:'Taux horaire brut (€)',                    placeholder:'15.50', numeric:true },
         { id:'period',     label:'Période concernée',                        placeholder:'Ex : Jan – Juin 2024' },
       ],
       'travail-harcelement':[
@@ -1189,36 +1189,36 @@
         { id:'reportedTo',     label:'Avez-vous signalé en interne ?', placeholder:'RH, direction, représentant du personnel…' },
       ],
       'routier-amende':[
-        { id:'fineNumber',     label:"Numéro de l'avis de contravention", placeholder:'12 chiffres ex : 123456789012', tooltip:"Visible sur l'avis de contravention reçu." },
+        { id:'fineNumber',     label:"Numéro de l'avis de contravention", placeholder:'123456789012', numeric:true, tooltip:"Visible sur l'avis de contravention reçu." },
         { id:'plateNumber',    label:"Numéro d'immatriculation",           placeholder:'AB-123-CD' },
         { id:'infractionDate', label:"Date et heure de l'infraction",     placeholder:'JJ/MM/AAAA HH:MM' },
         { id:'infractionType', label:"Nature de l'infraction",            placeholder:'Radar / Stationnement / Feux…' },
       ],
       'routier-points':[
         { id:'licenseNumber',  label:'Numéro de permis de conduire', placeholder:'12AA12345' },
-        { id:'pointsLost',     label:'Nombre de points retirés',     placeholder:'2' },
+        { id:'pointsLost',     label:'Nombre de points retirés',     placeholder:'2', numeric:true },
         { id:'infractionDate', label:"Date de l'infraction",         placeholder:'JJ/MM/AAAA' },
         { id:'contestReason',  label:'Motif de contestation',        placeholder:"Ex : Je n'étais pas au volant…" },
       ],
       'demeure-dette':[
-        { id:'amount',    label:'Montant exact de la dette (€)',           placeholder:'1500', tooltip:"Indiquez le montant total dû." },
+        { id:'amount',    label:'Montant exact de la dette (€)',           placeholder:'1500', numeric:true, tooltip:"Indiquez le montant total dû." },
         { id:'dueDate',   label:'Échéance de paiement initialement prévue', placeholder:'JJ/MM/AAAA' },
         { id:'proofType', label:'Type de preuve de la dette',              placeholder:'Contrat, devis signé, reconnaissance de dette…' },
       ],
       'demeure-avertissement':[
         { id:'subject',   label:"Objet de l'avertissement",       placeholder:'Ex : Non-respect des obligations contractuelles' },
-        { id:'amount',    label:'Montant en jeu (€) si applicable', placeholder:'0' },
+        { id:'amount',    label:'Montant en jeu (€) si applicable', placeholder:'0', numeric:true },
         { id:'deadline',  label:'Délai accordé pour se conformer', placeholder:'Ex : 15 jours' },
       ],
       'famille-divorce':[
         { id:'marriageDate', label:'Date de mariage',                placeholder:'JJ/MM/AAAA' },
         { id:'divorceType',  label:'Type de divorce souhaité',       placeholder:'À l\'amiable / Pour faute…' },
-        { id:'children',     label:'Nombre d\'enfants mineurs',      placeholder:'0' },
+        { id:'children',     label:'Nombre d\'enfants mineurs',      placeholder:'0', numeric:true },
         { id:'commonProperty', label:'Biens communs à partager ?',  placeholder:'Oui (décrivez) / Non' },
       ],
       'famille-pension':[
-        { id:'currentAmount',    label:'Montant actuel de la pension (€/mois)', placeholder:'300' },
-        { id:'childrenCount',    label:'Nombre d\'enfants concernés',            placeholder:'2' },
+        { id:'currentAmount',    label:'Montant actuel de la pension (€/mois)', placeholder:'300', numeric:true },
+        { id:'childrenCount',    label:'Nombre d\'enfants concernés',            placeholder:'2', numeric:true },
         { id:'lastJudgmentDate', label:'Date du dernier jugement',              placeholder:'JJ/MM/AAAA', tooltip:"Date figurant sur le jugement de divorce ou de séparation." },
         { id:'changeReason',     label:'Motif de la modification',              placeholder:'Ex : Perte d\'emploi, changement de garde…' },
       ],
@@ -1226,7 +1226,7 @@
 
     const getAddlFields = (cat, sub) =>
       ADDL[cat + '-' + sub] || [
-        { id:'amount',  label:'Montant en jeu (€)',          placeholder:'0' },
+        { id:'amount',  label:'Montant en jeu (€)',          placeholder:'0', numeric:true },
         { id:'details', label:'Informations supplémentaires', placeholder:'Tout détail utile à votre dossier…', textarea:true },
       ];
 
@@ -1255,18 +1255,30 @@
     const dmInp = { width:'100%', padding:'10px 13px', background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:8, color:'var(--text-primary)', fontSize:14, fontFamily:'Inter,sans-serif', outline:'none', transition:'border-color 0.15s', boxSizing:'border-box' };
     const dmLbl = { fontSize:12, fontWeight:510, color:'var(--text-muted)', marginBottom:5, display:'flex', alignItems:'center', gap:0 };
 
-    const DmField = ({ label, placeholder, value, onChange, tooltip, textarea }) => (
-      <div style={{marginBottom:14}}>
-        <label style={dmLbl}>{label}{tooltip && <InfoTip text={tooltip}/>}</label>
-        {textarea
-          ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={4}
-              style={{...dmInp, resize:'vertical', minHeight:88}}
-              onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
-          : <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={dmInp}
-              onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
+    const DmField = ({ label, placeholder, value, onChange, tooltip, textarea, numeric }) => {
+      const handleChange = (raw) => {
+        if (numeric) {
+          // Garde uniquement chiffres et un seul point décimal
+          const cleaned = raw.replace(/[^0-9.]/g, '').replace(/\.{2,}/g, '.').replace(/(\.\d*)\./, '$1');
+          onChange(cleaned);
+        } else {
+          onChange(raw);
         }
-      </div>
-    );
+      };
+      return (
+        <div style={{marginBottom:14}}>
+          <label style={dmLbl}>{label}{tooltip && <InfoTip text={tooltip}/>}</label>
+          {textarea
+            ? <textarea value={value} onChange={e=>handleChange(e.target.value)} placeholder={placeholder} rows={4}
+                style={{...dmInp, resize:'vertical', minHeight:88}}
+                onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
+            : <input value={value} onChange={e=>handleChange(e.target.value)} placeholder={placeholder} style={dmInp}
+                inputMode={numeric ? 'decimal' : 'text'}
+                onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'} />
+          }
+        </div>
+      );
+    };
     const DmRow  = ({children}) => <div style={{display:'flex', gap:12}}>{children}</div>;
     const DmHalf = ({children}) => <div style={{flex:1,minWidth:0}}>{children}</div>;
 
@@ -1392,7 +1404,7 @@
               {step===4 && <>
                 <div style={{fontSize:13, color:'var(--text-muted)', marginBottom:16, lineHeight:1.5}}>Ces informations spécifiques permettent de générer des documents précis et adaptés à votre dossier.</div>
                 {addlFields.map(f=>(
-                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
+                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
                 ))}
               </>}
 
@@ -1413,7 +1425,7 @@
                       style={{padding:'9px 24px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:14, fontWeight:590, cursor:'pointer'}}
                       onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
                       onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
-                      ✦ Générer les documents
+                      Passer à Premium +
                     </button>
                 }
               </div>
