@@ -104,10 +104,30 @@
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const plan = params.get('plan') || localStorage.getItem('avocai_last_plan') || '';
-    const label = plan === 'pro_plus' ? 'AvocAI Premium +' : 'AvocAI Premium';
+    const planParam = params.get('plan') || '';
+    const label = planParam === 'pro_plus' ? 'AvocAI Premium +' : 'AvocAI Premium';
     document.getElementById('title').textContent = 'Bienvenue dans ' + label + ' !';
     document.title = label + ' — Bienvenue !';
+
+    // Active le plan en BDD sans attendre le webhook Stripe (fonctionne en local)
+    const token = localStorage.getItem('avocai_token');
+    if (token) {
+      fetch('/api/activate-plan', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.user) {
+          localStorage.setItem('avocai_user', JSON.stringify(data.user));
+          // Met à jour le titre si le plan retourné diffère du param URL
+          const lbl = data.plan === 'pro_plus' ? 'AvocAI Premium +' : 'AvocAI Premium';
+          document.getElementById('title').textContent = 'Bienvenue dans ' + lbl + ' !';
+          document.title = lbl + ' — Bienvenue !';
+        }
+      })
+      .catch(() => {});
+    }
   </script>
 </body>
 </html>

@@ -591,6 +591,28 @@ app.post('/api/create-subscription-intent', requireAuth, async (req, res) => {
   }
 });
 
+// ── POST /api/activate-plan ─────────────────────────────
+// Appelé depuis success.html pour activer le plan sans webhook (utile en local)
+app.post('/api/activate-plan', requireAuth, async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) return res.status(503).json({ error: 'Stripe non configuré' });
+  const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!user.stripe_subscription_id) return res.status(400).json({ error: 'Aucun abonnement trouvé' });
+  try {
+    const sub = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+    if (sub.status === 'active' || sub.status === 'trialing') {
+      const priceId = sub.items.data[0]?.price?.id;
+      const plan = priceId === process.env.STRIPE_PRICE_ID_PREMIUM_PLUS ? 'pro_plus' : 'pro';
+      db.prepare('UPDATE users SET plan = ? WHERE id = ?').run(plan, req.user.id);
+      const updated = db.prepare('SELECT id, email, firstName, lastName, plan FROM users WHERE id = ?').get(req.user.id);
+      return res.json({ success: true, plan, user: updated });
+    }
+    res.json({ success: false, status: sub.status });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── POST /api/stripe-webhook ─────────────────────────────
 app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const sig = req.headers['stripe-signature'];
