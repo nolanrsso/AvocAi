@@ -645,8 +645,8 @@
                 <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-subtle)', marginBottom: 10 }}>Gratuit</div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, marginBottom: 6 }}>
                   <span style={{ fontSize: 44, fontWeight: 500, letterSpacing: '-2px', color: 'var(--text-primary)', lineHeight: 1 }}>0</span>
-                  <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>€</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>&nbsp;/ toujours</span>
+                  <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>€</span>
+                  <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>&nbsp;/ {isMonthly ? 'mois' : 'semaine'}</span>
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.5 }}>Pour découvrir AvocAI et vos situations du quotidien.</p>
                 <div style={{ height: 1, background: 'var(--border-default)', marginBottom: 18 }} />
@@ -666,9 +666,9 @@
               <div style={cardStyle(false)}>
                 <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7170ff', marginBottom: 10 }}>Premium</div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, marginBottom: 6 }}>
-                  <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>€</span>
                   <span style={{ fontSize: 44, fontWeight: 500, letterSpacing: '-2px', color: 'var(--text-primary)', lineHeight: 1 }}>{isMonthly ? '10' : '3'}</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>&nbsp;/ {isMonthly ? 'mois' : 'semaine'}</span>
+                  <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>€</span>
+                  <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>&nbsp;/ {isMonthly ? 'mois' : 'semaine'}</span>
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.5 }}>{isMonthly ? 'Économisez 30% avec la facturation mensuelle.' : 'Idéal pour suivre un dossier ou gérer plusieurs situations.'}</p>
                 <div style={{ height: 1, background: 'var(--border-default)', marginBottom: 18 }} />
@@ -690,9 +690,9 @@
                 <div style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', background: '#5e6ad2', color: '#fff', padding: '3px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Le plus populaire</div>
                 <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#7170ff', marginBottom: 10 }}>Premium+</div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, marginBottom: 6 }}>
-                  <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>€</span>
                   <span style={{ fontSize: 44, fontWeight: 500, letterSpacing: '-2px', color: 'var(--text-primary)', lineHeight: 1 }}>{isMonthly ? '12' : '4'}</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>&nbsp;/ {isMonthly ? 'mois' : 'semaine'}</span>
+                  <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>€</span>
+                  <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>&nbsp;/ {isMonthly ? 'mois' : 'semaine'}</span>
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.5 }}>{isMonthly ? 'Économisez 30% avec la facturation mensuelle.' : 'Pour les professionnels et les situations complexes.'}</p>
                 <div style={{ height: 1, background: 'var(--border-default)', marginBottom: 18 }} />
