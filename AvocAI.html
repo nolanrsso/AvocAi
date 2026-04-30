@@ -2451,6 +2451,20 @@
       const [scrollTarget, setScrollTarget] = useState(null);
       const [appUser, setAppUser] = useState(getStoredUser);
 
+      // Rafraîchit le plan depuis /api/me à chaque chargement (ex: retour après paiement Stripe)
+      useEffect(() => {
+        if (!getToken()) return;
+        fetch('/api/auth/me', { headers: authHeaders() })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data?.user) {
+              setAppUser(data.user);
+              localStorage.setItem('avocai_user', JSON.stringify(data.user));
+            }
+          })
+          .catch(() => {});
+      }, []);
+
       useEffect(() => {
         if (page === 'landing' && scrollTarget) {
           const id = scrollTarget;
