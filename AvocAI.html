@@ -1133,28 +1133,34 @@
         { id:'remboursement', label:'Demander un remboursement' },
         { id:'livraison',     label:'Contester une livraison non reçue' },
         { id:'abonnement',   label:'Annuler un abonnement' },
+        { id:'autre',         label:'Autre — précisez' },
       ]},
       { id:'locatif', icon:'🏠', label:'Rapports locatifs', subs:[
         { id:'caution',   label:'Récupérer un dépôt de garantie' },
         { id:'travaux',   label:'Signaler des travaux non faits' },
         { id:'expulsion', label:'Contester une expulsion' },
+        { id:'autre',     label:'Autre — précisez' },
       ]},
       { id:'travail', icon:'💼', label:'Droit du travail', subs:[
         { id:'licenciement', label:'Contester un licenciement' },
         { id:'heures-sup',   label:'Réclamer des heures supplémentaires impayées' },
         { id:'harcelement',  label:'Dénoncer un harcèlement' },
+        { id:'autre',        label:'Autre — précisez' },
       ]},
       { id:'routier', icon:'🚗', label:'Infractions routières', subs:[
         { id:'amende', label:'Contester une amende (radar / stationnement)' },
         { id:'points', label:'Récupérer des points de permis' },
+        { id:'autre',  label:'Autre — précisez' },
       ]},
       { id:'demeure', icon:'⚖️', label:'Mise en demeure', subs:[
         { id:'dette',         label:"Réclamer une somme d'argent à un tiers" },
         { id:'avertissement', label:'Dernier avertissement avant poursuites' },
+        { id:'autre',         label:'Autre — précisez' },
       ]},
       { id:'famille', icon:'👨‍👩‍👧', label:'Vie de famille', subs:[
         { id:'divorce', label:'Entamer une procédure de divorce' },
         { id:'pension', label:'Demander / modifier une pension alimentaire' },
+        { id:'autre',   label:'Autre — précisez' },
       ]},
     ];
 
@@ -1248,8 +1254,11 @@
 
     const getAddlFields = (cat, sub) =>
       ADDL[cat + '-' + sub] || [
-        { id:'amount',  label:'Montant en jeu (€)',          placeholder:'0', numeric:true },
-        { id:'details', label:'Informations supplémentaires', placeholder:'Tout détail utile à votre dossier…', textarea:true, optional:true },
+        { id:'subject',   label:'Sujet précis de votre démarche',           placeholder:'Ex : Voisinage bruyant, contrat non honoré, refus de service…', tooltip:"Résumez en quelques mots l'objet exact de votre demande." },
+        { id:'amount',    label:'Montant en jeu (€)',                       placeholder:'0', numeric:true, optional:true },
+        { id:'keyDate',   label:'Date clé du litige',                       placeholder:'JJ/MM/AAAA', date:true, optional:true, tooltip:"Date à laquelle le problème est survenu ou a été constaté." },
+        { id:'documents', label:'Documents et preuves disponibles',          placeholder:'Ex : Contrat, factures, échanges écrits, photos, témoignages…', textarea:true, optional:true },
+        { id:'attempts',  label:'Démarches déjà tentées',                    placeholder:'Ex : Appel au service client, courrier en LRAR le 5 mars…', textarea:true, optional:true },
       ];
 
     /* ── Contexte adaptatif (étape 3) ───────────────────── */
@@ -1332,9 +1341,9 @@
     };
     const getCtxFields = (cat, sub) =>
       CONTEXT_FIELDS[cat + '-' + sub] || {
-        problem: { label:'Décrivez le problème en détail *', placeholder:'Expliquez ce qui s\'est passé, le contexte, et les démarches déjà effectuées…' },
-        when:    { label:'Dates et circonstances clés *', placeholder:'Indiquez les dates importantes et l\'enchaînement des faits…' },
-        party:   { label:'Partie adverse (nom / entreprise) *', placeholder:'Ex : Nom de la personne ou de l\'organisation concernée', tip:'Indiquez le nom exact tel qu\'il figure sur les documents officiels.' },
+        problem: { label:'Précisez votre situation et le problème rencontré *', placeholder:'Expliquez en détail le type de litige, ce qui s\'est passé, et le contexte général. Plus vous êtes précis, mieux nous pourrons vous aider.' },
+        when:    { label:'Dates et chronologie des faits *', placeholder:'Ex : Le problème a commencé le… Premières démarches le… Dernier échange le…' },
+        party:   { label:'Partie adverse *', placeholder:'Nom complet de la personne, entreprise ou administration concernée', tip:'Indiquez le nom tel qu\'il figure sur les documents officiels (contrat, courrier, facture…).' },
       };
 
     /* ── InfoTip (bulle d'aide) ─────────────────────────── */
