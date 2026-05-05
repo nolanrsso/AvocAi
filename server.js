@@ -32,7 +32,7 @@ const googleClient = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
   : null;
 
 // ── Quota config ────────────────────────────────────────
-const QUOTA_LIMITS = { free: 5, pro: 150, admin: Infinity };
+const QUOTA_LIMITS = { free: 5, pro: 50, pro_plus: 50, admin: Infinity };
 const IP_DAILY_LIMIT_FREE = 5; // max requêtes/jour/IP tous comptes free confondus
 
 function todayUTC() {

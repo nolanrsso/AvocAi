@@ -599,7 +599,7 @@
       };
 
       const freeFeatures    = ['3 analyses / jour', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite'];
-      const proFeatures     = ['Tout le plan Gratuit', '100 analyses / jour', 'Historique illimité', 'Contactez un avocat adapté à votre situation', 'Support 24h'];
+      const proFeatures     = ['Tout le plan Gratuit', '50 analyses / jour', 'Historique illimité', 'Contactez un avocat adapté à votre situation', 'Support 24h'];
       const proNotAvailable = ['Démarches officielles guidées', 'Formulaires officiels pré-remplis'];
       const proPlus       = ['Tous les avantages du plan Premium', 'Aide au remplissage de démarches', 'Formulaires officiels pré-remplis', 'Lettres types générées par IA', 'Suivi de dossier pas à pas', 'Alertes délais légaux', 'Support prioritaire 24h'];
 
@@ -1741,7 +1741,7 @@
           priceW: '3', priceM: '10',
           features: [
             { t: 'Dossier juridique complet débloqué', bold: true },
-            { t: '100 analyses / jour' },
+            { t: '50 analyses / jour' },
             { t: 'Historique illimité' },
             { t: 'Contactez un avocat adapté' },
             { t: 'Support 24h' },
@@ -2034,9 +2034,10 @@
           });
           if (res.status === 401) { logout(); return; }
 
-          // Quota dépassé
+          // Quota dépassé — délai artificiel pour simuler la réflexion de l'IA
           if (res.status === 429) {
             const body = await res.json();
+            await new Promise(r => setTimeout(r, 1800));
             setQuota(prev => prev ? { ...prev, used: prev.limit, remaining: 0 } : null);
             setMessages(prev => [...prev, { role: 'quota', quota: body.quota, text: body.error }]);
             return;
@@ -2286,24 +2287,31 @@
                         <ErrorCard message={msg.text} />
                       ) : msg.role === 'quota' ? (
                         <div style={{ maxWidth: '88%' }}>
-                          <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 12, padding: '18px 22px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                              <span style={{ fontSize: 18 }}>⏱</span>
-                              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', fontFeatureSettings: '"cv01","ss03"' }}>Quota journalier atteint</span>
+                          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderLeft: '3px solid #5e6ad2', borderRadius: 12, padding: '20px 24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: '#7170ff', textTransform: 'uppercase', letterSpacing: 0.5, fontFeatureSettings: '"cv01","ss03"' }}>✦ Limite quotidienne atteinte</span>
                             </div>
-                            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 14px', lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
-                              Vous avez utilisé vos {msg.quota?.limit || 5} analyses gratuites d'aujourd'hui.
-                              Le compteur se remet à zéro à minuit UTC.
+                            <div style={{ fontSize: 16, fontWeight: 590, color: 'var(--text-primary)', marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>
+                              {msg.quota?.plan === 'pro' || msg.quota?.plan === 'pro_plus'
+                                ? 'Vous avez utilisé vos 50 analyses du jour'
+                                : 'Vous avez utilisé vos 5 analyses gratuites du jour'}
+                            </div>
+                            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
+                              {msg.quota?.plan === 'pro' || msg.quota?.plan === 'pro_plus'
+                                ? 'Le compteur se remet à zéro à minuit UTC. Réessayez demain pour continuer vos analyses.'
+                                : 'Passez à Premium pour obtenir 10× plus d\'analyses chaque jour, l\'historique illimité et l\'accès aux démarches officielles guidées.'}
                             </p>
-                            <button onClick={scrollToPricing} style={{
-                              padding: '8px 18px', background: '#5e6ad2', color: '#fff', border: 'none',
-                              borderRadius: 6, fontSize: 14, fontWeight: 510, cursor: 'pointer', fontFeatureSettings: '"cv01","ss03"',
-                            }}
-                              onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
-                              onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-                            >
-                              Passer à Premium — +100 analyses/jour
-                            </button>
+                            {(msg.quota?.plan !== 'pro' && msg.quota?.plan !== 'pro_plus') && (
+                              <button onClick={scrollToPricing} style={{
+                                padding: '10px 20px', background: '#5e6ad2', color: '#fff', border: 'none',
+                                borderRadius: 8, fontSize: 14, fontWeight: 510, cursor: 'pointer', fontFeatureSettings: '"cv01","ss03"',
+                              }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                                onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                              >
+                                Passer à Premium →
+                              </button>
+                            )}
                           </div>
                         </div>
                       ) : (
