@@ -3044,6 +3044,63 @@
       contacter_avocat:'Droit général',
     };
 
+    /* Génère le texte du dossier pour le corps d'un email mailto */
+    const buildDossierEmailBody = (data, subLabel) => {
+      const today = new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+      const lines = [];
+      lines.push(`Bonjour Maître,`);
+      lines.push(``);
+      lines.push(`Je vous adresse ci-dessous mon dossier dans le cadre d'une demande de consultation juridique.`);
+      lines.push(``);
+      lines.push(`══════════════════════════════════════════`);
+      lines.push(`${(subLabel||'DOSSIER').toUpperCase()}`);
+      lines.push(`══════════════════════════════════════════`);
+      lines.push(``);
+      lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
+      lines.push(`${data?.address||'Adresse non renseignée'}`);
+      lines.push(`Le ${today}`);
+      lines.push(``);
+      lines.push(`Madame, Monsieur,`);
+      lines.push(``);
+      lines.push(`Je soussigné(e), ${data?.firstName||''} ${data?.lastName||''}, né(e) le ${data?.birthDate||'…'} à ${data?.birthPlace||'…'}, demeurant au ${data?.address||'…'}, sollicite votre conseil concernant la situation suivante.`);
+      lines.push(``);
+      if (data?.problemDescription) { lines.push(`DESCRIPTION DE LA SITUATION :`); lines.push(data.problemDescription); lines.push(``); }
+      if (data?.timeline)           { lines.push(`CHRONOLOGIE :`); lines.push(data.timeline); lines.push(``); }
+      if (data?.adverseParty)       { lines.push(`PARTIE ADVERSE : ${data.adverseParty}`); }
+      if (data?.adverseAddress)     { lines.push(`Adresse partie adverse : ${data.adverseAddress}`); lines.push(``); }
+      lines.push(``);
+      lines.push(`Je reste à votre disposition pour tout complément d'information et pour convenir d'un rendez-vous.`);
+      lines.push(``);
+      lines.push(`Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées.`);
+      lines.push(``);
+      lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
+      lines.push(``);
+      lines.push(`──────────────────────────────────────────`);
+      lines.push(`Coordonnées :`);
+      if (data?.email) lines.push(`Email : ${data.email}`);
+      if (data?.phone) lines.push(`Téléphone : ${data.phone}`);
+      if (data?.profession) lines.push(`Profession : ${data.profession}`);
+      lines.push(``);
+      lines.push(`Document généré via AvocAI — https://avocai.fr`);
+      return lines.join('\n');
+    };
+
+    const openMailTo = (to, subject, body) => {
+      const url = `mailto:${to||''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = url;
+    };
+
+    const copyToClipboard = async text => {
+      try { await navigator.clipboard.writeText(text); return true; }
+      catch {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); document.body.removeChild(ta); return true; }
+        catch { document.body.removeChild(ta); return false; }
+      }
+    };
+
     const LawyerMatchModal = ({ onClose, formData, onViewDossier }) => {
       const [status,  setStatus]  = useState('loading');
       const [lawyers, setLawyers] = useState([]);
@@ -3084,6 +3141,7 @@
                   name:    t.name || null,
                   address: [t['addr:housenumber'], t['addr:street'], t['addr:postcode'], t['addr:city']].filter(Boolean).join(' '),
                   phone:   t.phone || t['contact:phone'] || null,
+                  email:   t.email || t['contact:email'] || null,
                   website: t.website || t['contact:website'] || null,
                   dist:    (eLat && eLon) ? haversineKm(lat, lon, eLat, eLon) : null,
                 };
@@ -3207,6 +3265,8 @@
                             {l.address && <div style={{fontSize:12, color:'var(--text-muted)', display:'flex', gap:6}}><span>📍</span>{l.address}</div>}
                             {l.phone ? <a href={`tel:${l.phone}`} style={{fontSize:13, color:'#5e6ad2', textDecoration:'none', display:'flex', gap:6, alignItems:'center'}}>📞 {l.phone}</a>
                               : <span style={{fontSize:12, color:'var(--text-muted)'}}>Téléphone non renseigné</span>}
+                            {l.email ? <a href={`mailto:${l.email}`} style={{fontSize:13, color:'#5e6ad2', textDecoration:'none', display:'flex', gap:6, alignItems:'center'}}>✉️ {l.email}</a>
+                              : <span style={{fontSize:12, color:'var(--text-muted)'}}>Email non renseigné</span>}
                             {l.website ? <a href={l.website} target="_blank" rel="noopener" style={{fontSize:13, color:'#5e6ad2', textDecoration:'none', display:'flex', gap:6, alignItems:'center'}}>🌐 {l.website}</a>
                               : <span style={{fontSize:12, color:'var(--text-muted)'}}>Site web non renseigné</span>}
                           </div>
@@ -3215,16 +3275,35 @@
                         {/* Confirmation inline */}
                         {isConfirming && !isSent && (
                           <div style={{borderTop:'1px solid rgba(94,106,210,0.3)', padding:'14px 18px', background:'rgba(94,106,210,0.06)'}}>
-                            <div style={{fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:6}}>Êtes-vous sûr de vouloir contacter cet avocat avec votre dossier ?</div>
+                            <div style={{fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:6}}>📨 Envoyer votre dossier par email à <strong>{l.name}</strong> ?</div>
                             <div style={{fontSize:12, color:'var(--text-muted)', marginBottom:14, lineHeight:1.6}}>
-                              La réponse sera envoyée à l'adresse :<br/>
-                              <strong style={{color:'#7170ff'}}>{formData?.email || 'adresse non renseignée'}</strong>
+                              {l.email ? (
+                                <>Votre client mail s'ouvrira avec le dossier pré-rempli.<br/>L'email partira de votre adresse <strong style={{color:'#7170ff'}}>{formData?.email||'…'}</strong>, vous pourrez relire et envoyer.</>
+                              ) : (
+                                <>Cet avocat n'a pas d'email public. Vous pouvez copier votre dossier dans le presse-papier et l'envoyer manuellement, ou utiliser son numéro de téléphone.</>
+                              )}
                             </div>
-                            <div style={{display:'flex', gap:8}}>
-                              <button onClick={()=>{ setSent(i); setConfirming(null); }} style={{padding:'8px 16px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}
-                                onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
-                                onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
-                                Confirmer
+                            <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                              {l.email ? (
+                                <button onClick={() => {
+                                  const subj = `Demande de consultation — ${formData?.firstName||''} ${formData?.lastName||''}`;
+                                  const body = buildDossierEmailBody(formData, formData?.subcategoryLabel || CAT_SPECIALTY[formData?.category] || 'Dossier');
+                                  openMailTo(l.email, subj, body);
+                                  setSent(i); setConfirming(null);
+                                }} style={{padding:'8px 16px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}
+                                  onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
+                                  onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
+                                  ✉️ Ouvrir mon mail
+                                </button>
+                              ) : null}
+                              <button onClick={async () => {
+                                const body = buildDossierEmailBody(formData, formData?.subcategoryLabel || CAT_SPECIALTY[formData?.category] || 'Dossier');
+                                const ok = await copyToClipboard(body);
+                                if (ok) { setSent(i); setConfirming(null); }
+                              }} style={{padding:'8px 14px', borderRadius:8, border:'1px solid rgba(113,112,255,0.4)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}
+                                onMouseEnter={e=>e.currentTarget.style.background='rgba(94,106,210,0.18)'}
+                                onMouseLeave={e=>e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
+                                📋 Copier le dossier
                               </button>
                               <button onClick={()=>setConfirming(null)} style={{padding:'8px 14px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:13, cursor:'pointer'}}>
                                 Annuler
@@ -3235,10 +3314,11 @@
                         {/* Sent success */}
                         {isSent && (
                           <div style={{borderTop:'1px solid rgba(34,197,94,0.2)', padding:'14px 18px', background:'rgba(34,197,94,0.05)'}}>
-                            <div style={{fontSize:13, color:'#22c55e', fontWeight:600, marginBottom:4}}>✓ C'est transmis !</div>
+                            <div style={{fontSize:13, color:'#22c55e', fontWeight:600, marginBottom:4}}>✓ Dossier prêt</div>
                             <div style={{fontSize:13, color:'var(--text-body)', lineHeight:1.6}}>
-                              <strong>{l.name}</strong> vous répondra au plus vite par mail à l'adresse suivante :<br/>
-                              <strong style={{color:'#22c55e'}}>{formData?.email || 'adresse non renseignée'}</strong>
+                              {l.email
+                                ? <>Votre client mail s'est ouvert avec le dossier pré-rempli. Vérifiez et cliquez <strong>Envoyer</strong>.<br/>La réponse arrivera sur <strong style={{color:'#22c55e'}}>{formData?.email||''}</strong>.</>
+                                : <>Le dossier est copié dans votre presse-papier. Collez-le dans votre client mail et envoyez-le à <strong>{l.name}</strong>.</>}
                             </div>
                           </div>
                         )}
@@ -4091,25 +4171,26 @@ body { font-family: 'Times New Roman', Georgia, serif; color:#111827; background
 
     /* ── SupportModal (contact équipe) ──────────────────── */
 
+    const SUPPORT_EMAIL = 'support@avocai.fr'; // À ajuster selon adresse réelle
+
     const SupportModal = ({ onClose, user }) => {
       const isPlus = user?.plan === 'pro_plus' || user?.plan === 'admin';
       const [subject, setSubject] = useState('');
       const [message, setMessage] = useState('');
-      const [sending, setSending] = useState(false);
       const [sent, setSent] = useState(false);
 
-      const send = async () => {
-        if (!message.trim() || sending) return;
-        setSending(true);
-        // À configurer : endpoint backend ou mailto
-        try {
-          await fetch('/api/support', {
-            method:'POST', headers:{ ...authHeaders(), 'Content-Type':'application/json' },
-            body: JSON.stringify({ subject, message, plan: user?.plan })
-          });
-        } catch {}
-        setSending(false); setSent(true);
-        setTimeout(() => onClose(), 1500);
+      const send = () => {
+        if (!message.trim()) return;
+        const subj = `[AvocAI · ${user?.plan||'free'}] ${subject || 'Demande de support'}`;
+        const body = `${message}\n\n──────────────────────────\nCompte : ${user?.email||'(non connecté)'}\nPlan : ${user?.plan||'free'}\nDate : ${new Date().toLocaleString('fr-FR')}`;
+        openMailTo(SUPPORT_EMAIL, subj, body);
+        // Log côté serveur (pour traçabilité, sans dépendre de l'envoi du mail)
+        fetch('/api/support', {
+          method:'POST', headers:{ ...authHeaders(), 'Content-Type':'application/json' },
+          body: JSON.stringify({ subject, message, plan: user?.plan })
+        }).catch(()=>{});
+        setSent(true);
+        setTimeout(() => onClose(), 2200);
       };
 
       return (
@@ -4130,24 +4211,27 @@ body { font-family: 'Times New Roman', Georgia, serif; color:#111827; background
             {sent ? (
               <div style={{ padding:'24px 14px', textAlign:'center' }}>
                 <div style={{ fontSize:32, marginBottom:10 }}>📨</div>
-                <div style={{ fontSize:14, fontWeight:600, color:'#22c55e', marginBottom:4 }}>Message envoyé !</div>
-                <div style={{ fontSize:12, color:'var(--text-muted)' }}>Réponse sous {isPlus ? '6h max' : '24h'}.</div>
+                <div style={{ fontSize:14, fontWeight:600, color:'#22c55e', marginBottom:6 }}>Votre client mail s'est ouvert</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', lineHeight:1.6 }}>Vérifiez le contenu et cliquez <strong>Envoyer</strong> dans votre messagerie.<br/>Réponse sous {isPlus ? '6h max' : '24h'}.</div>
               </div>
             ) : (
               <>
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6, lineHeight:1.5 }}>
+                  Le message s'enverra depuis votre adresse <strong style={{ color:'#7170ff' }}>{user?.email || '…'}</strong> vers <strong>{SUPPORT_EMAIL}</strong>.
+                </div>
                 <input value={subject} onChange={e => setSubject(e.target.value)}
                   placeholder="Sujet (optionnel)"
-                  style={{ width:'100%', padding:'10px 14px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:14, outline:'none', marginTop:8, boxSizing:'border-box' }}
+                  style={{ width:'100%', padding:'10px 14px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:14, outline:'none', marginTop:10, boxSizing:'border-box' }}
                   onFocus={e => e.target.style.borderColor='#5e6ad2'} onBlur={e => e.target.style.borderColor='var(--border-default)'}/>
                 <textarea value={message} onChange={e => setMessage(e.target.value)}
                   placeholder="Décrivez votre problème ou votre question…" rows={5}
                   style={{ width:'100%', padding:'10px 14px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:13, outline:'none', marginTop:10, resize:'vertical', minHeight:100, fontFamily:'inherit', boxSizing:'border-box', lineHeight:1.5 }}
                   onFocus={e => e.target.style.borderColor='#5e6ad2'} onBlur={e => e.target.style.borderColor='var(--border-default)'}/>
-                <button onClick={send} disabled={!message.trim() || sending}
-                  style={{ width:'100%', padding:'11px 14px', borderRadius:8, border:'none', background: message.trim()&&!sending?'#5e6ad2':'var(--border-default)', color: message.trim()&&!sending?'#fff':'var(--text-subtle)', fontSize:14, fontWeight:600, cursor: message.trim()&&!sending?'pointer':'not-allowed', marginTop:14 }}
-                  onMouseEnter={e => { if(message.trim()&&!sending) e.currentTarget.style.background='#828fff'; }}
-                  onMouseLeave={e => { if(message.trim()&&!sending) e.currentTarget.style.background='#5e6ad2'; }}>
-                  {sending ? 'Envoi…' : 'Envoyer le message'}
+                <button onClick={send} disabled={!message.trim()}
+                  style={{ width:'100%', padding:'11px 14px', borderRadius:8, border:'none', background: message.trim()?'#5e6ad2':'var(--border-default)', color: message.trim()?'#fff':'var(--text-subtle)', fontSize:14, fontWeight:600, cursor: message.trim()?'pointer':'not-allowed', marginTop:14, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}
+                  onMouseEnter={e => { if(message.trim()) e.currentTarget.style.background='#828fff'; }}
+                  onMouseLeave={e => { if(message.trim()) e.currentTarget.style.background='#5e6ad2'; }}>
+                  ✉️ Ouvrir mon client mail
                 </button>
               </>
             )}
