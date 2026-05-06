@@ -273,13 +273,15 @@
 
     const BurgerIcon = ({ open }) => {
       const ease  = 'cubic-bezier(0.5,0.85,0.25,1.1)';
-      const ease2 = 'cubic-bezier(0.5,0.85,0.25,1.8)';
       const baseStyle = { transformOrigin: '12px 12px', transformBox: 'fill-box' };
       return (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none', overflow: 'visible' }}>
-          <path d="M4 12L20 12" style={{ ...baseStyle, transition: `transform 0.3s ${ease}`, transform: open ? 'rotate(315deg)' : 'translateY(-7px)' }}/>
-          <path d="M4 12H20"   style={{ ...baseStyle, transition: `transform 0.3s ${ease2}`, transform: open ? 'rotate(45deg)' : 'rotate(0deg)' }}/>
-          <path d="M4 12H20"   style={{ ...baseStyle, transition: `transform 0.3s ${ease}`, transform: open ? 'rotate(135deg)' : 'translateY(7px)' }}/>
+          {/* Top → diagonale \ */}
+          <path d="M4 12L20 12" style={{ ...baseStyle, transition: `transform 0.3s ${ease}`, transform: open ? 'rotate(45deg)' : 'translateY(-7px)' }}/>
+          {/* Middle → fade */}
+          <path d="M4 12H20"   style={{ ...baseStyle, transition: `opacity 0.2s ease`, opacity: open ? 0 : 1 }}/>
+          {/* Bottom → diagonale / */}
+          <path d="M4 12H20"   style={{ ...baseStyle, transition: `transform 0.3s ${ease}`, transform: open ? 'rotate(-45deg)' : 'translateY(7px)' }}/>
         </svg>
       );
     };
@@ -297,15 +299,16 @@
         return () => document.removeEventListener('mousedown', handler);
       }, []);
 
-      const goDemarche = () => { setPage('chat'); setTimeout(() => window.dispatchEvent(new CustomEvent('avocai:open-demarche')), 60); };
-
-      const items = [
+      // Premium simple → contact avocat + support uniquement
+      // Premium+        → tout (dossiers, contact avocat, alertes, support)
+      const items = isPlus ? [
         { icon: '📁', label: 'Mes dossiers', sub: 'Consulter et modifier', action: () => window.dispatchEvent(new CustomEvent('avocai:open-dossiers')) },
         { icon: '👨‍⚖️', label: 'Contacter un avocat', sub: 'Avocats près de chez vous', action: () => window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search')) },
-        { icon: '🔔', label: 'Alertes délais légaux', sub: 'Par téléphone', plus: true, action: () => window.dispatchEvent(new CustomEvent('avocai:open-alerts')) },
-        { icon: '📋', label: 'Dossiers pré-remplis', sub: 'Formulaires officiels', action: goDemarche },
-        { icon: '✉️', label: 'Lettres types par IA', sub: 'Mises en demeure, recours…', plus: true, action: goDemarche },
-        { icon: '💬', label: 'Support', sub: isPlus ? '24h prioritaire' : '24h', action: () => window.dispatchEvent(new CustomEvent('avocai:open-support')) },
+        { icon: '🔔', label: 'Alertes délais légaux', sub: 'Par téléphone', action: () => window.dispatchEvent(new CustomEvent('avocai:open-alerts')) },
+        { icon: '💬', label: 'Support', sub: '24h prioritaire', action: () => window.dispatchEvent(new CustomEvent('avocai:open-support')) },
+      ] : [
+        { icon: '👨‍⚖️', label: 'Contacter un avocat', sub: 'Avocats par domaine, près de chez vous', action: () => window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search')) },
+        { icon: '💬', label: 'Support', sub: '24h', action: () => window.dispatchEvent(new CustomEvent('avocai:open-support')) },
       ];
 
       return (
@@ -2287,14 +2290,21 @@
                 }
               } catch {}
             }
-            // Restaurer dossier en attente si l'utilisateur vient d'upgrader
+            // Post-upgrade : Premium → recherche avocat ; Premium+ → résultat dossier
             const planVal = me.user?.plan;
             if (planVal === 'pro' || planVal === 'pro_plus') {
               try {
                 const pending = localStorage.getItem(DOSSIER_KEY);
                 if (pending) {
-                  setDemarcheData(JSON.parse(pending));
-                  setDemarcheState('result');
+                  const pendingData = JSON.parse(pending);
+                  setDemarcheData(pendingData);
+                  if (planVal === 'pro_plus') {
+                    setDemarcheState('result');
+                  } else {
+                    // Premium simple : pas de dossier, direct recherche avocat
+                    setDemarcheState('lawyers');
+                    localStorage.removeItem(DOSSIER_KEY);
+                  }
                 }
               } catch {}
             }
@@ -2537,8 +2547,8 @@
                 localStorage.setItem(DOSSIER_KEY, JSON.stringify(formData));
                 setDemarcheData(formData);
                 setDemarcheWantsLawyer(!!formData.wantsLawyer);
-                // Sauvegarde serveur si premium
-                if (getToken() && (user?.plan === 'pro' || user?.plan === 'pro_plus')) {
+                // Sauvegarde serveur uniquement Premium+ (Premium simple n'a pas accès aux dossiers)
+                if (getToken() && (user?.plan === 'pro_plus' || user?.plan === 'admin')) {
                   const catLabel = DEMARCHE_CATS.find(c=>c.id===formData.category)?.label || 'Démarche';
                   const subLabel = DEMARCHE_CATS.find(c=>c.id===formData.category)?.subs?.find(s=>s.id===formData.subcategory)?.label || catLabel;
                   fetch('/api/dossiers', {
@@ -3486,6 +3496,7 @@
       const [dossiers, setDossiers]     = useState([]);
       const [loading, setLoading]       = useState(true);
       const [viewing, setViewing]       = useState(null); // { id, title, category, data, created_at }
+      const [viewMode, setViewMode]     = useState('view'); // 'view' | 'edit'
       const [loadingView, setLoadingView] = useState(false);
 
       useEffect(() => {
@@ -3495,8 +3506,9 @@
           .catch(() => setLoading(false));
       }, []);
 
-      const openDossier = async (id) => {
+      const openDossier = async (id, mode='view') => {
         setLoadingView(true);
+        setViewMode(mode);
         try {
           const r = await fetch(`/api/dossiers/${id}`, { headers: authHeaders() });
           const d = await r.json();
@@ -3529,20 +3541,30 @@
               <div style={{ flex:1 }}/>
               <button onClick={onClose} style={{ background:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)' }}>✕ Fermer</button>
             </div>
-            {/* Split layout : chat IA + document */}
+            {/* Layout : chat IA gauche (mode édition uniquement) + document */}
             <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
-              {/* Chat IA gauche */}
-              <div style={{ width:340, borderRight:'1px solid var(--border-default)', background:'var(--bg-panel)', flexShrink:0, display:'flex', flexDirection:'column' }}>
-                <DossierChat
-                  dossier={viewing}
-                  userPlan={userPlan}
-                  onUpdate={newData => setViewing(v => ({ ...v, data: newData }))}
-                />
-              </div>
+              {viewMode === 'edit' && (
+                <div style={{ width:340, borderRight:'1px solid var(--border-default)', background:'var(--bg-panel)', flexShrink:0, display:'flex', flexDirection:'column' }}>
+                  <DossierChat
+                    dossier={viewing}
+                    userPlan={userPlan}
+                    onUpdate={newData => setViewing(v => ({ ...v, data: newData }))}
+                  />
+                </div>
+              )}
               {/* Document droite */}
               <div style={{ flex:1, overflowY:'auto', padding:'32px 24px' }}>
                 <DossierDocument data={viewing.data} subLabel={subLabel} />
-                <div style={{ maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end' }}>
+                <div style={{ maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end', gap:10 }}>
+                  {viewMode === 'view' && (userPlan === 'pro_plus' || userPlan === 'admin') && (
+                    <button onClick={() => setViewMode('edit')}
+                      style={{ padding:'10px 22px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}
+                      onMouseEnter={e => e.currentTarget.style.background='#828fff'}
+                      onMouseLeave={e => e.currentTarget.style.background='#5e6ad2'}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                      Modifier avec l'IA
+                    </button>
+                  )}
                   <button onClick={() => setViewing(null)} style={{ padding:'10px 22px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:14, fontWeight:510, cursor:'pointer' }}>
                     Retour à la liste
                   </button>
@@ -3591,7 +3613,7 @@
               {!loadingView && !loading && dossiers.length > 0 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {dossiers.map(d => (
-                    <div key={d.id} onClick={() => openDossier(d.id)}
+                    <div key={d.id} onClick={() => openDossier(d.id, 'edit')}
                       style={{ padding:'14px 16px', borderRadius:12, border:'1px solid var(--border-default)', background:'var(--bg-surface)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, transition:'border-color 0.15s, background 0.15s' }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(94,106,210,0.5)'; e.currentTarget.style.background='rgba(94,106,210,0.04)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border-default)'; e.currentTarget.style.background='var(--bg-surface)'; }}
@@ -3607,12 +3629,20 @@
                           </div>
                         </div>
                       </div>
-                      <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                        <button onClick={e => { e.stopPropagation(); openDossier(d.id); }}
+                      <div style={{ display:'flex', gap:6, flexShrink:0, alignItems:'center' }}>
+                        <button onClick={e => { e.stopPropagation(); openDossier(d.id, 'edit'); }}
+                          title="Modifier avec l'IA"
                           style={{ padding:'6px 12px', borderRadius:6, border:'1px solid rgba(94,106,210,0.3)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:12, fontWeight:600, cursor:'pointer' }}
                           onMouseEnter={e => e.currentTarget.style.background='rgba(94,106,210,0.18)'}
                           onMouseLeave={e => e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
-                          Voir
+                          Modifier
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); openDossier(d.id, 'view'); }}
+                          title="Voir le dossier"
+                          style={{ width:30, height:30, borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
+                          onMouseEnter={e => { e.currentTarget.style.background='rgba(94,106,210,0.08)'; e.currentTarget.style.color='#7170ff'; e.currentTarget.style.borderColor='rgba(94,106,210,0.3)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--text-muted)'; e.currentTarget.style.borderColor='var(--border-default)'; }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
                         <button onClick={e => deleteDossier(d.id, e)}
                           style={{ padding:'6px 10px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'transparent', color:'rgba(239,68,68,0.7)', fontSize:12, cursor:'pointer' }}
@@ -3647,23 +3677,41 @@
       return 'contacter_avocat';
     };
 
+    const DOMAIN_PICKER = [
+      { id:'travail',         icon:'💼', label:'Droit du travail' },
+      { id:'locatif',         icon:'🏠', label:'Droit immobilier / locatif' },
+      { id:'consommation',    icon:'🛒', label:'Droit de la consommation' },
+      { id:'routier',         icon:'🚗', label:'Droit routier' },
+      { id:'famille',         icon:'👨‍👩‍👧', label:'Droit de la famille' },
+      { id:'demeure',         icon:'💰', label:'Recouvrement de créances' },
+      { id:'penal',           icon:'⚖️', label:'Droit pénal' },
+      { id:'sante',           icon:'🏥', label:'Droit de la santé' },
+      { id:'administratif',   icon:'📋', label:'Droit administratif' },
+      { id:'affaires',        icon:'🏢', label:'Droit des affaires' },
+      { id:'contacter_avocat',icon:'⚖️', label:'Droit général' },
+    ];
+
     const DossierPickerModal = ({ onClose, user }) => {
+      const isPlus = user?.plan === 'pro_plus' || user?.plan === 'admin';
       const [view, setView]         = useState('pick'); // 'pick' | 'match'
       const [convos, setConvos]     = useState([]);
       const [loadingC, setLoadingC] = useState(true);
       const [selected, setSelected] = useState(null);
+      const [domain, setDomain]     = useState(null);
       const [city, setCity]         = useState('');
       const [cityErr, setCityErr]   = useState(false);
+      const [domainErr, setDomainErr] = useState(false);
 
       useEffect(() => {
+        if (!isPlus) { setLoadingC(false); return; } // Premium simple : pas de dossiers
         fetch('/api/dossiers', { headers: authHeaders() })
           .then(r => r.ok ? r.json() : { dossiers: [] })
           .then(d => { setConvos(d.dossiers || []); setLoadingC(false); })
           .catch(() => setLoadingC(false));
-      }, []);
+      }, [isPlus]);
 
       if (view === 'match') {
-        const cat = selected?.category || 'contacter_avocat';
+        const cat = selected?.category || domain || 'contacter_avocat';
         return (
           <LawyerMatchModal
             formData={{ category: cat, lawyerCity: city, email: user?.email || '' }}
@@ -3672,9 +3720,13 @@
         );
       }
 
+      const needsDomain = !selected; // si aucun dossier sélectionné → domaine requis
       const handleSearch = () => {
-        if (!city.trim()) { setCityErr(true); return; }
-        setView('match');
+        const cityOk = !!city.trim();
+        const domainOk = !!selected || !!domain;
+        if (!cityOk) setCityErr(true);
+        if (!domainOk) setDomainErr(true);
+        if (cityOk && domainOk) setView('match');
       };
 
       return (
@@ -3686,7 +3738,7 @@
             <div style={{ padding:'20px 24px 16px', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
               <div>
                 <div style={{ fontSize:18, fontWeight:600, color:'var(--text-primary)' }}>👨‍⚖️ Contacter un avocat</div>
-                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>Sélectionnez votre commune et un dossier (optionnel)</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>{isPlus ? 'Choisissez un dossier ou un domaine de droit' : 'Choisissez le domaine pour trouver un avocat spécialisé'}</div>
               </div>
               <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-muted)', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
             </div>
@@ -3703,53 +3755,77 @@
                 {cityErr && <div style={{ fontSize:11, color:'#ef4444', marginTop:4 }}>Veuillez entrer votre commune.</div>}
               </div>
 
-              {/* Dossier list */}
-              <div>
-                <label style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em', display:'block', marginBottom:10 }}>
-                  📂 Choisir un dossier <span style={{ fontSize:11, fontWeight:400, color:'var(--text-subtle)' }}>(optionnel — affine la recherche)</span>
-                </label>
-                {loadingC ? (
-                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 0', color:'var(--text-muted)', fontSize:13 }}>
-                    <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.9s linear infinite', flexShrink:0 }}/>
-                    Chargement des dossiers…
-                  </div>
-                ) : convos.length === 0 ? (
-                  <div style={{ fontSize:13, color:'var(--text-muted)', padding:'8px 0', fontStyle:'italic' }}>
-                    Aucun dossier trouvé — vous pouvez tout de même rechercher un avocat.
-                  </div>
-                ) : (
-                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                    {convos.map(c => {
-                      const isSel = selected?.id === c.id;
-                      return (
-                        <div key={c.id}
-                          onClick={() => setSelected(isSel ? null : c)}
-                          style={{ padding:'12px 14px', borderRadius:10, border:`1.5px solid ${isSel?'#5e6ad2':'var(--border-default)'}`, background: isSel?'rgba(94,106,210,0.08)':'transparent', cursor:'pointer', transition:'all 0.15s', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}
-                          onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor='rgba(94,106,210,0.4)'; }}
-                          onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor='var(--border-default)'; }}
-                        >
-                          <div>
-                            <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:2 }}>{c.title || 'Dossier sans titre'}</div>
-                            <div style={{ fontSize:11, color:'var(--text-muted)' }}>{c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR') : ''}</div>
+              {/* Dossier list (Premium+ uniquement) */}
+              {isPlus && (loadingC || convos.length > 0) && (
+                <div>
+                  <label style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em', display:'block', marginBottom:10 }}>
+                    📂 Choisir un dossier <span style={{ fontSize:11, fontWeight:400, color:'var(--text-subtle)' }}>(optionnel)</span>
+                  </label>
+                  {loadingC ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 0', color:'var(--text-muted)', fontSize:13 }}>
+                      <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.9s linear infinite', flexShrink:0 }}/>
+                      Chargement des dossiers…
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                      {convos.map(c => {
+                        const isSel = selected?.id === c.id;
+                        return (
+                          <div key={c.id}
+                            onClick={() => { setSelected(isSel ? null : c); if (!isSel) { setDomain(null); setDomainErr(false); } }}
+                            style={{ padding:'12px 14px', borderRadius:10, border:`1.5px solid ${isSel?'#5e6ad2':'var(--border-default)'}`, background: isSel?'rgba(94,106,210,0.08)':'transparent', cursor:'pointer', transition:'all 0.15s', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}
+                            onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor='rgba(94,106,210,0.4)'; }}
+                            onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor='var(--border-default)'; }}
+                          >
+                            <div>
+                              <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:2 }}>{c.title || 'Dossier sans titre'}</div>
+                              <div style={{ fontSize:11, color:'var(--text-muted)' }}>{CAT_LABEL_MAP[c.category] || ''} {c.created_at ? '· ' + new Date(c.created_at).toLocaleDateString('fr-FR') : ''}</div>
+                            </div>
+                            {isSel && <div style={{ width:18, height:18, borderRadius:'50%', background:'#5e6ad2', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></div>}
                           </div>
-                          {isSel && <div style={{ width:18, height:18, borderRadius:'50%', background:'#5e6ad2', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></div>}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Domain picker (toujours pour Premium simple, sinon en fallback si pas de dossier sélectionné) */}
+              {!selected && (
+                <div>
+                  <label style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em', display:'block', marginBottom:10 }}>
+                    🎯 Domaine de droit <span style={{ color:'#7170ff' }}>*</span>
+                  </label>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                    {DOMAIN_PICKER.map(dom => {
+                      const isSel = domain === dom.id;
+                      return (
+                        <div key={dom.id} onClick={() => { setDomain(dom.id); setDomainErr(false); }}
+                          style={{ padding:'10px 12px', borderRadius:10, border:`1.5px solid ${isSel?'#5e6ad2':'var(--border-default)'}`, background: isSel?'rgba(94,106,210,0.08)':'transparent', cursor:'pointer', transition:'all 0.15s', display:'flex', alignItems:'center', gap:9 }}
+                          onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor='rgba(94,106,210,0.4)'; }}
+                          onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor='var(--border-default)'; }}>
+                          <span style={{ fontSize:16 }}>{dom.icon}</span>
+                          <span style={{ fontSize:12, fontWeight:510, color:'var(--text-primary)', lineHeight:1.3 }}>{dom.label}</span>
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
+                  {domainErr && <div style={{ fontSize:11, color:'#ef4444', marginTop:6 }}>Sélectionnez un domaine de droit.</div>}
+                </div>
+              )}
             </div>
 
             {/* Footer */}
             <div style={{ padding:'14px 24px', borderTop:'1px solid var(--border-subtle)', flexShrink:0 }}>
               <button onClick={handleSearch}
-                style={{ width:'100%', padding:'12px', borderRadius:8, border:'none', background: city.trim()?'#5e6ad2':'var(--bg-surface-elevated)', color: city.trim()?'#fff':'var(--text-subtle)', fontSize:14, fontWeight:600, cursor: city.trim()?'pointer':'default', transition:'all 0.15s' }}
-                onMouseEnter={e => { if (city.trim()) e.currentTarget.style.background='#828fff'; }}
-                onMouseLeave={e => { if (city.trim()) e.currentTarget.style.background='#5e6ad2'; }}>
+                style={{ width:'100%', padding:'12px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.background='#828fff'}
+                onMouseLeave={e => e.currentTarget.style.background='#5e6ad2'}>
                 {selected
                   ? `🔍 Avocats pour "${(selected.title||'').slice(0,32)+'…'}"`
-                  : '🔍 Trouver un avocat près de moi'}
+                  : domain
+                    ? `🔍 Avocats — ${DOMAIN_PICKER.find(d=>d.id===domain)?.label || ''}`
+                    : '🔍 Trouver un avocat spécialisé'}
               </button>
             </div>
           </div>

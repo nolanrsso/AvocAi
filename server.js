@@ -342,16 +342,21 @@ app.post('/api/support', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// Chat IA spécialisé pour modifier un dossier
-app.post('/api/dossiers/:id/chat', requireAuth, async (req, res) => {
-  const { message, history } = req.body || {};
-  if (!message) return res.status(400).json({ error: 'Message manquant.' });
-
-  // Vérifie que le user a Premium+
+// Middleware : Premium+ requis ET incrément quota
+function requirePremiumPlusAndQuota(req, res, next) {
   const userRow = db.prepare('SELECT plan FROM users WHERE id = ?').get(req.user.id);
   if (userRow?.plan !== 'pro_plus' && userRow?.plan !== 'admin') {
     return res.status(403).json({ error: 'Réservé aux abonnés Premium+.' });
   }
+  return checkQuota(req, res, next);
+}
+
+// Chat IA spécialisé pour modifier un dossier (Premium+ uniquement, compte dans le quota journalier)
+app.post('/api/dossiers/:id/chat', requireAuth, requirePremiumPlusAndQuota, async (req, res) => {
+  const { message, history } = req.body || {};
+  if (!message) return res.status(400).json({ error: 'Message manquant.' });
+
+  const userRow = db.prepare('SELECT plan FROM users WHERE id = ?').get(req.user.id);
 
   const row = db.prepare('SELECT * FROM dossiers WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!row) return res.status(404).json({ error: 'Dossier introuvable.' });
