@@ -3707,7 +3707,12 @@
         if (!isPlus) { setLoadingC(false); return; } // Premium simple : pas de dossiers
         fetch('/api/dossiers', { headers: authHeaders() })
           .then(r => r.ok ? r.json() : { dossiers: [] })
-          .then(d => { setConvos(d.dossiers || []); setLoadingC(false); })
+          .then(d => {
+            const list = d.dossiers || [];
+            setConvos(list);
+            if (list.length > 0) setSelected(list[0]); // Pré-sélection du dossier le plus récent
+            setLoadingC(false);
+          })
           .catch(() => setLoadingC(false));
       }, [isPlus]);
 
@@ -3759,8 +3764,9 @@
               {/* Dossier list (Premium+ uniquement) */}
               {isPlus && (loadingC || convos.length > 0) && (
                 <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:'var(--text-subtle)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:6 }}>Optionnel</div>
                   <label style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em', display:'block', marginBottom:10 }}>
-                    📂 Choisir un dossier <span style={{ fontSize:11, fontWeight:400, color:'var(--text-subtle)' }}>(optionnel)</span>
+                    📂 Choisir un dossier <span style={{ fontSize:11, fontWeight:400, color:'var(--text-subtle)' }}>(pré-sélectionné — cliquez pour désélectionner)</span>
                   </label>
                   {loadingC ? (
                     <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 0', color:'var(--text-muted)', fontSize:13 }}>
