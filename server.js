@@ -333,6 +333,15 @@ app.delete('/api/dossiers/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// Support : enregistre la demande (à brancher sur SMTP plus tard)
+app.post('/api/support', requireAuth, (req, res) => {
+  const { subject, message } = req.body || {};
+  if (!message) return res.status(400).json({ error: 'Message manquant.' });
+  const userRow = db.prepare('SELECT email, plan FROM users WHERE id = ?').get(req.user.id);
+  console.log(`[SUPPORT] from ${userRow?.email || req.user.id} (${userRow?.plan}): ${subject || '(no subject)'} | ${message}`);
+  res.json({ ok: true });
+});
+
 // Chat IA spécialisé pour modifier un dossier
 app.post('/api/dossiers/:id/chat', requireAuth, async (req, res) => {
   const { message, history } = req.body || {};
