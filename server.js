@@ -304,6 +304,35 @@ app.get('/api/quota/status', requireAuth, (req, res) => {
   res.json({ used, limit, plan, remaining: Math.max(0, limit - used) });
 });
 
+// ── Dossiers ────────────────────────────────────────────
+app.get('/api/dossiers', requireAuth, (req, res) => {
+  const rows = db.prepare(
+    'SELECT id, title, category, created_at FROM dossiers WHERE user_id = ? ORDER BY id DESC'
+  ).all(req.user.id);
+  res.json({ dossiers: rows });
+});
+
+app.get('/api/dossiers/:id', requireAuth, (req, res) => {
+  const row = db.prepare('SELECT * FROM dossiers WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!row) return res.status(404).json({ error: 'Dossier introuvable.' });
+  res.json({ dossier: { ...row, data: JSON.parse(row.data || '{}') } });
+});
+
+app.post('/api/dossiers', requireAuth, (req, res) => {
+  const { title, category, data } = req.body || {};
+  if (!title || !category) return res.status(400).json({ error: 'Champs manquants.' });
+  const result = db.prepare(
+    'INSERT INTO dossiers (user_id, title, category, data) VALUES (?, ?, ?, ?)'
+  ).run(req.user.id, title, category, JSON.stringify(data || {}));
+  res.json({ id: Number(result.lastInsertRowid), title, category });
+});
+
+app.delete('/api/dossiers/:id', requireAuth, (req, res) => {
+  const r = db.prepare('DELETE FROM dossiers WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+  if (r.changes === 0) return res.status(404).json({ error: 'Dossier introuvable.' });
+  res.json({ ok: true });
+});
+
 // ── Conversations ───────────────────────────────────────
 app.get('/api/conversations', requireAuth, (req, res) => {
   const rows = db.prepare(

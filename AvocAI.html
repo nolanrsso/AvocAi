@@ -344,11 +344,12 @@
                     onMouseLeave={e => e.currentTarget.style.background = 'rgba(94,106,210,0.1)'}
                   >Contacter un avocat</button>
                   {user?.plan === 'pro_plus' && (
-                    <button className="nav-try-btn" onClick={() => setPage('chat')}
+                    <button className="nav-try-btn"
+                      onClick={() => window.dispatchEvent(new CustomEvent('avocai:open-dossiers'))}
                       style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
                       onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
                       onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-                    >Mon dossier</button>
+                    >Mes dossiers</button>
                   )}
                 </>
               ) : (
@@ -2418,6 +2419,16 @@
                 localStorage.setItem(DOSSIER_KEY, JSON.stringify(formData));
                 setDemarcheData(formData);
                 setDemarcheWantsLawyer(!!formData.wantsLawyer);
+                // Sauvegarde serveur si premium
+                if (getToken() && (user?.plan === 'pro' || user?.plan === 'pro_plus')) {
+                  const catLabel = DEMARCHE_CATS.find(c=>c.id===formData.category)?.label || 'Démarche';
+                  const subLabel = DEMARCHE_CATS.find(c=>c.id===formData.category)?.subs?.find(s=>s.id===formData.subcategory)?.label || catLabel;
+                  fetch('/api/dossiers', {
+                    method: 'POST',
+                    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: subLabel, category: formData.category, data: formData }),
+                  }).catch(() => {});
+                }
                 setDemarcheState('loading');
               }}
               userPlan={user?.plan}
@@ -3184,6 +3195,155 @@
       );
     };
 
+    /* ── DossierListModal ───────────────────────────────── */
+
+    const CAT_LABEL_MAP = {
+      travail:'Droit du travail', locatif:'Droit immobilier',
+      consommation:'Droit de la consommation', routier:'Droit routier',
+      demeure:'Recouvrement de créances', famille:'Droit de la famille',
+      penal:'Droit pénal', sante:'Droit de la santé',
+      administratif:'Droit administratif', affaires:'Droit des affaires',
+      contacter_avocat:'Droit général',
+    };
+
+    const DossierListModal = ({ onClose }) => {
+      const [dossiers, setDossiers]     = useState([]);
+      const [loading, setLoading]       = useState(true);
+      const [viewing, setViewing]       = useState(null); // { id, title, category, data, created_at }
+      const [loadingView, setLoadingView] = useState(false);
+
+      useEffect(() => {
+        fetch('/api/dossiers', { headers: authHeaders() })
+          .then(r => r.ok ? r.json() : { dossiers: [] })
+          .then(d => { setDossiers(d.dossiers || []); setLoading(false); })
+          .catch(() => setLoading(false));
+      }, []);
+
+      const openDossier = async (id) => {
+        setLoadingView(true);
+        try {
+          const r = await fetch(`/api/dossiers/${id}`, { headers: authHeaders() });
+          const d = await r.json();
+          setViewing(d.dossier);
+        } catch {}
+        setLoadingView(false);
+      };
+
+      const deleteDossier = async (id, e) => {
+        e.stopPropagation();
+        if (!confirm('Supprimer ce dossier définitivement ?')) return;
+        await fetch(`/api/dossiers/${id}`, { method:'DELETE', headers: authHeaders() });
+        setDossiers(prev => prev.filter(d => d.id !== id));
+        if (viewing?.id === id) setViewing(null);
+      };
+
+      // ── Vue document ──
+      if (viewing) {
+        const subLabel = viewing.title;
+        return (
+          <div style={{ position:'fixed', inset:0, zIndex:700, background:'var(--bg-page)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+            {/* Header */}
+            <div style={{ height:52, background:'var(--bg-panel)', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', padding:'0 24px', gap:12, flexShrink:0 }}>
+              <button onClick={() => setViewing(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)', display:'flex', alignItems:'center', gap:6 }}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 1L3 6l5 5"/></svg>
+                Retour
+              </button>
+              <span style={{ fontSize:14, fontWeight:510, color:'var(--text-primary)' }}>📄 {subLabel}</span>
+              <span style={{ fontSize:11, color:'var(--text-muted)', background:'rgba(94,106,210,0.1)', border:'1px solid rgba(94,106,210,0.2)', borderRadius:20, padding:'2px 10px' }}>{CAT_LABEL_MAP[viewing.category] || 'Droit général'}</span>
+              <div style={{ flex:1 }}/>
+              <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)' }}>✕ Fermer</button>
+            </div>
+            {/* Document */}
+            <div style={{ flex:1, overflowY:'auto', padding:'32px 24px' }}>
+              <DossierDocument data={viewing.data} subLabel={subLabel} />
+              <div style={{ maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end' }}>
+                <button onClick={() => setViewing(null)} style={{ padding:'10px 22px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:14, fontWeight:510, cursor:'pointer' }}>
+                  Retour à la liste
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── Liste ──
+      return (
+        <div style={{ position:'fixed', inset:0, zIndex:700, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e => e.target===e.currentTarget && onClose()}>
+          <div style={{ background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:18, width:'100%', maxWidth:600, maxHeight:'88vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding:'20px 24px 16px', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+              <div>
+                <div style={{ fontSize:18, fontWeight:600, color:'var(--text-primary)' }}>📁 Mes dossiers</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>Documents juridiques générés lors de vos démarches</div>
+              </div>
+              <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-muted)', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+              {loadingView && (
+                <div style={{ textAlign:'center', padding:'40px 0' }}>
+                  <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.9s linear infinite', margin:'0 auto 16px' }}/>
+                  <p style={{ fontSize:13, color:'var(--text-muted)' }}>Chargement du dossier…</p>
+                </div>
+              )}
+              {!loadingView && loading && (
+                <div style={{ textAlign:'center', padding:'40px 0' }}>
+                  <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.9s linear infinite', margin:'0 auto 16px' }}/>
+                  <p style={{ fontSize:13, color:'var(--text-muted)' }}>Chargement…</p>
+                </div>
+              )}
+              {!loadingView && !loading && dossiers.length === 0 && (
+                <div style={{ textAlign:'center', padding:'48px 0' }}>
+                  <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
+                  <p style={{ fontSize:15, color:'var(--text-muted)', lineHeight:1.6 }}>Aucun dossier pour l'instant.<br/>Commencez une démarche pour générer votre premier document.</p>
+                </div>
+              )}
+              {!loadingView && !loading && dossiers.length > 0 && (
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {dossiers.map(d => (
+                    <div key={d.id} onClick={() => openDossier(d.id)}
+                      style={{ padding:'14px 16px', borderRadius:12, border:'1px solid var(--border-default)', background:'var(--bg-surface)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, transition:'border-color 0.15s, background 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(94,106,210,0.5)'; e.currentTarget.style.background='rgba(94,106,210,0.04)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border-default)'; e.currentTarget.style.background='var(--bg-surface)'; }}
+                    >
+                      <div style={{ display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0 }}>
+                        <div style={{ width:38, height:38, borderRadius:8, background:'rgba(94,106,210,0.12)', border:'1px solid rgba(94,106,210,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>📄</div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:14, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.title}</div>
+                          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2, display:'flex', gap:8 }}>
+                            <span>{CAT_LABEL_MAP[d.category] || 'Droit général'}</span>
+                            <span>·</span>
+                            <span>{d.created_at ? new Date(d.created_at).toLocaleDateString('fr-FR') : ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                        <button onClick={e => { e.stopPropagation(); openDossier(d.id); }}
+                          style={{ padding:'6px 12px', borderRadius:6, border:'1px solid rgba(94,106,210,0.3)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:12, fontWeight:600, cursor:'pointer' }}
+                          onMouseEnter={e => e.currentTarget.style.background='rgba(94,106,210,0.18)'}
+                          onMouseLeave={e => e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
+                          Voir
+                        </button>
+                        <button onClick={e => deleteDossier(d.id, e)}
+                          style={{ padding:'6px 10px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'transparent', color:'rgba(239,68,68,0.7)', fontSize:12, cursor:'pointer' }}
+                          onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.08)'; e.currentTarget.style.color='#ef4444'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(239,68,68,0.7)'; }}>
+                          🗑
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     /* ── DossierPickerModal ─────────────────────────────── */
 
     const inferCategory = title => {
@@ -3209,14 +3369,14 @@
       const [cityErr, setCityErr]   = useState(false);
 
       useEffect(() => {
-        fetch('/api/conversations', { headers: authHeaders() })
-          .then(r => r.ok ? r.json() : { conversations: [] })
-          .then(d => { setConvos(d.conversations || []); setLoadingC(false); })
+        fetch('/api/dossiers', { headers: authHeaders() })
+          .then(r => r.ok ? r.json() : { dossiers: [] })
+          .then(d => { setConvos(d.dossiers || []); setLoadingC(false); })
           .catch(() => setLoadingC(false));
       }, []);
 
       if (view === 'match') {
-        const cat = selected ? inferCategory(selected.title) : 'contacter_avocat';
+        const cat = selected?.category || 'contacter_avocat';
         return (
           <LawyerMatchModal
             formData={{ category: cat, lawyerCity: city, email: user?.email || '' }}
@@ -3321,11 +3481,18 @@
       const [scrollTarget, setScrollTarget] = useState(null);
       const [appUser, setAppUser] = useState(getStoredUser);
       const [showLawyerModal, setShowLawyerModal] = useState(false);
+      const [showDossierModal, setShowDossierModal] = useState(false);
 
       useEffect(() => {
         const handler = () => setShowLawyerModal(true);
         window.addEventListener('avocai:open-lawyer-search', handler);
         return () => window.removeEventListener('avocai:open-lawyer-search', handler);
+      }, []);
+
+      useEffect(() => {
+        const handler = () => setShowDossierModal(true);
+        window.addEventListener('avocai:open-dossiers', handler);
+        return () => window.removeEventListener('avocai:open-dossiers', handler);
       }, []);
 
       // Rafraîchit le plan depuis /api/me à chaque chargement (ex: retour après paiement Stripe)
@@ -3368,6 +3535,7 @@
             ? <LandingPage setPage={setPage} onHeroSend={handleHeroSend} />
             : <ChatInterface setPage={setPage} heroMessage={heroMessage} onHeroMessageConsumed={() => setHeroMessage(null)} onUserUpdate={setAppUser} />}
           {showLawyerModal && <DossierPickerModal onClose={() => setShowLawyerModal(false)} user={appUser} />}
+          {showDossierModal && <DossierListModal onClose={() => setShowDossierModal(false)} />}
         </div>
       );
     };

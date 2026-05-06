@@ -55,9 +55,20 @@ db.exec(`
     PRIMARY KEY (ip, date)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_conv_user ON conversations(user_id);
-  CREATE INDEX IF NOT EXISTS idx_msg_conv  ON messages(conversation_id);
-  CREATE INDEX IF NOT EXISTS idx_daily_req ON daily_requests(user_id, date);
+  CREATE TABLE IF NOT EXISTS dossiers (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    title      TEXT NOT NULL,
+    category   TEXT NOT NULL,
+    data       TEXT NOT NULL DEFAULT '{}',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_conv_user    ON conversations(user_id);
+  CREATE INDEX IF NOT EXISTS idx_msg_conv     ON messages(conversation_id);
+  CREATE INDEX IF NOT EXISTS idx_daily_req    ON daily_requests(user_id, date);
+  CREATE INDEX IF NOT EXISTS idx_dossier_user ON dossiers(user_id);
 `);
 
 // Migrations
