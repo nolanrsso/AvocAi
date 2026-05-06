@@ -1219,37 +1219,89 @@
 
     const DEMARCHE_CATS = [
       { id:'consommation', icon:'🛒', label:'Litige de la consommation', subs:[
-        { id:'remboursement', label:'Demander un remboursement' },
-        { id:'livraison',     label:'Contester une livraison non reçue' },
-        { id:'abonnement',   label:'Annuler un abonnement' },
-        { id:'autre',         label:'Autre — précisez' },
+        { id:'remboursement',  label:'Demander un remboursement' },
+        { id:'livraison',      label:'Contester une livraison non reçue' },
+        { id:'abonnement',     label:'Annuler / résilier un abonnement' },
+        { id:'garantie',       label:'Faire jouer la garantie légale' },
+        { id:'arnaque',        label:'Signaler une arnaque en ligne' },
+        { id:'autre',          label:'Autre — précisez' },
       ]},
-      { id:'locatif', icon:'🏠', label:'Rapports locatifs', subs:[
-        { id:'caution',   label:'Récupérer un dépôt de garantie' },
-        { id:'travaux',   label:'Signaler des travaux non faits' },
-        { id:'expulsion', label:'Contester une expulsion' },
-        { id:'autre',     label:'Autre — précisez' },
+      { id:'locatif', icon:'🏠', label:'Logement & immobilier', subs:[
+        { id:'caution',        label:'Récupérer un dépôt de garantie' },
+        { id:'travaux',        label:'Signaler des travaux non réalisés' },
+        { id:'expulsion',      label:'Contester une expulsion / congé' },
+        { id:'loyer',          label:'Litige sur le montant du loyer' },
+        { id:'voisinage',      label:'Troubles du voisinage' },
+        { id:'copropriete',    label:'Litige de copropriété' },
+        { id:'achat-vente',    label:'Litige achat / vente immobilière' },
+        { id:'autre',          label:'Autre — précisez' },
       ]},
       { id:'travail', icon:'💼', label:'Droit du travail', subs:[
-        { id:'licenciement', label:'Contester un licenciement' },
-        { id:'heures-sup',   label:'Réclamer des heures supplémentaires impayées' },
-        { id:'harcelement',  label:'Dénoncer un harcèlement' },
-        { id:'autre',        label:'Autre — précisez' },
+        { id:'licenciement',   label:'Contester un licenciement' },
+        { id:'heures-sup',     label:'Réclamer des heures supplémentaires' },
+        { id:'harcelement',    label:'Dénoncer un harcèlement moral / sexuel' },
+        { id:'discrimination', label:'Discrimination à l\'embauche ou au travail' },
+        { id:'rupture-conv',   label:'Rupture conventionnelle refusée' },
+        { id:'accident-trav',  label:'Accident du travail / maladie professionnelle' },
+        { id:'salaire',        label:'Salaire impayé ou retenu' },
+        { id:'autre',          label:'Autre — précisez' },
+      ]},
+      { id:'penal', icon:'🚨', label:'Droit pénal', subs:[
+        { id:'plainte',        label:'Porter plainte contre quelqu\'un' },
+        { id:'garde-a-vue',    label:'Assistance en garde à vue' },
+        { id:'victime',        label:'Défense des droits d\'une victime' },
+        { id:'diffamation',    label:'Diffamation / injure / cyberharcèlement' },
+        { id:'vol-escroquerie',label:'Vol, escroquerie, abus de confiance' },
+        { id:'violences',      label:'Violences physiques ou psychologiques' },
+        { id:'autre',          label:'Autre infraction — précisez' },
       ]},
       { id:'routier', icon:'🚗', label:'Infractions routières', subs:[
-        { id:'amende', label:'Contester une amende (radar / stationnement)' },
-        { id:'points', label:'Récupérer des points de permis' },
-        { id:'autre',  label:'Autre — précisez' },
+        { id:'amende',         label:'Contester une amende (radar / stationnement)' },
+        { id:'points',         label:'Récupérer des points de permis' },
+        { id:'suspension',     label:'Contester une suspension de permis' },
+        { id:'accident',       label:'Accident de la route (indemnisation)' },
+        { id:'alcool-drogue',  label:'Alcool / stupéfiants au volant' },
+        { id:'autre',          label:'Autre — précisez' },
       ]},
-      { id:'demeure', icon:'⚖️', label:'Mise en demeure', subs:[
-        { id:'dette',         label:"Réclamer une somme d'argent à un tiers" },
-        { id:'avertissement', label:'Dernier avertissement avant poursuites' },
-        { id:'autre',         label:'Autre — précisez' },
+      { id:'famille', icon:'👨‍👩‍👧', label:'Droit de la famille', subs:[
+        { id:'divorce',        label:'Entamer une procédure de divorce' },
+        { id:'pension',        label:'Demander / modifier une pension alimentaire' },
+        { id:'garde',          label:'Litige garde d\'enfant / autorité parentale' },
+        { id:'adoption',       label:'Procédure d\'adoption' },
+        { id:'succession',     label:'Litige succession / héritage' },
+        { id:'tutelle',        label:'Tutelle / curatelle d\'un proche' },
+        { id:'autre',          label:'Autre — précisez' },
       ]},
-      { id:'famille', icon:'👨‍👩‍👧', label:'Vie de famille', subs:[
-        { id:'divorce', label:'Entamer une procédure de divorce' },
-        { id:'pension', label:'Demander / modifier une pension alimentaire' },
-        { id:'autre',   label:'Autre — précisez' },
+      { id:'demeure', icon:'📜', label:'Recouvrement & dettes', subs:[
+        { id:'dette',          label:'Réclamer une somme d\'argent impayée' },
+        { id:'avertissement',  label:'Dernier avertissement avant poursuites' },
+        { id:'surendettement', label:'Dossier de surendettement' },
+        { id:'impaye-loyer',   label:'Loyers impayés (bailleur)' },
+        { id:'credit',         label:'Litige crédit / prêt bancaire' },
+        { id:'autre',          label:'Autre — précisez' },
+      ]},
+      { id:'sante', icon:'🏥', label:'Santé & médical', subs:[
+        { id:'faute-medicale', label:'Faute médicale / erreur de diagnostic' },
+        { id:'indemnisation',  label:'Demande d\'indemnisation ONIAM / CCI' },
+        { id:'assurance-sante',label:'Litige assurance santé / mutuelle' },
+        { id:'handicap',       label:'Droits liés au handicap / MDPH' },
+        { id:'autre',          label:'Autre — précisez' },
+      ]},
+      { id:'administratif', icon:'🏛️', label:'Droit administratif', subs:[
+        { id:'permis-construire', label:'Permis de construire refusé / contesté' },
+        { id:'fonctionnaire',  label:'Litige fonctionnaire / agent public' },
+        { id:'expropriation',  label:'Expropriation / préemption' },
+        { id:'visa-titre',     label:'Visa, titre de séjour, naturalisation' },
+        { id:'prestation-caf', label:'Litige CAF, Pôle emploi, CPAM' },
+        { id:'autre',          label:'Autre — précisez' },
+      ]},
+      { id:'affaires', icon:'🏢', label:'Droit des affaires', subs:[
+        { id:'contrat-commercial', label:'Litige contrat commercial' },
+        { id:'impaye-facture', label:'Facture impayée (B2B)' },
+        { id:'creation-societe', label:'Création / dissolution de société' },
+        { id:'concurrence',    label:'Concurrence déloyale / contrefaçon' },
+        { id:'bail-commercial',label:'Bail commercial' },
+        { id:'autre',          label:'Autre — précisez' },
       ]},
       { id:'contacter_avocat', icon:'👨‍⚖️', label:'Contacter un avocat', subs:[
         { id:'defense_penale',  label:'Défense pénale' },
@@ -1632,15 +1684,33 @@
                 {addlFields.map(f=>(
                   <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} date={f.date} optional={f.optional} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
                 ))}
-                {/* Checkbox avocat */}
-                <div onClick={()=>upd('wantsLawyer',!data.wantsLawyer)} style={{marginTop:22, padding:'14px 16px', borderRadius:10, border:`1.5px solid ${data.wantsLawyer?'#5e6ad2':'var(--border-default)'}`, background:data.wantsLawyer?'rgba(94,106,210,0.07)':'var(--bg-subtle,transparent)', cursor:'pointer', transition:'all 0.15s'}}>
-                  <div style={{display:'flex', alignItems:'center', gap:12}}>
-                    <div style={{width:20, height:20, borderRadius:4, border:`2px solid ${data.wantsLawyer?'#5e6ad2':'var(--border-default)'}`, background:data.wantsLawyer?'#5e6ad2':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s'}}>
-                      {data.wantsLawyer && <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                {/* Checkbox avocat + localisation */}
+                <div style={{marginTop:22, borderRadius:12, border:`1.5px solid ${data.wantsLawyer?'#5e6ad2':'var(--border-default)'}`, overflow:'hidden', transition:'border-color 0.2s'}}>
+                  <div onClick={()=>upd('wantsLawyer',!data.wantsLawyer)} style={{padding:'14px 16px', background:data.wantsLawyer?'rgba(94,106,210,0.07)':'var(--bg-subtle,transparent)', cursor:'pointer', transition:'background 0.2s'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:12}}>
+                      <div style={{width:20, height:20, borderRadius:4, border:`2px solid ${data.wantsLawyer?'#5e6ad2':'var(--border-default)'}`, background:data.wantsLawyer?'#5e6ad2':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s'}}>
+                        {data.wantsLawyer && <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      <div>
+                        <div style={{fontSize:14, fontWeight:600, color:'var(--text-primary)'}}>Souhaitez-vous contacter un avocat ?</div>
+                        <div style={{fontSize:12, color:'var(--text-muted)', marginTop:2}}>Nous trouverons les avocats les plus adaptés à votre dossier, près de chez vous.</div>
+                      </div>
                     </div>
-                    <div>
-                      <div style={{fontSize:14, fontWeight:600, color:'var(--text-primary)'}}>Souhaitez-vous contacter un avocat ?</div>
-                      <div style={{fontSize:12, color:'var(--text-muted)', marginTop:2}}>Nous trouverons les avocats les plus adaptés à votre dossier, près de chez vous.</div>
+                  </div>
+                  {/* Swipe reveal — champ localisation */}
+                  <div style={{maxHeight: data.wantsLawyer ? '120px' : '0', overflow:'hidden', transition:'max-height 0.35s cubic-bezier(0.4,0,0.2,1)'}}>
+                    <div style={{padding:'0 16px 16px', borderTop:`1px solid rgba(94,106,210,0.2)`, paddingTop:14}} onClick={e=>e.stopPropagation()}>
+                      <label style={{fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em', display:'block', marginBottom:6}}>
+                        📍 Votre ville ou adresse <span style={{color:'#7170ff'}}>*</span>
+                      </label>
+                      <input
+                        value={data.lawyerCity||''}
+                        onChange={e=>upd('lawyerCity', e.target.value)}
+                        placeholder="Ex : Lyon, 75011 Paris, Bordeaux…"
+                        style={{width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-input,var(--bg-panel))', color:'var(--text-primary)', fontSize:14, outline:'none', boxSizing:'border-box'}}
+                        onFocus={e=>e.target.style.borderColor='#5e6ad2'}
+                        onBlur={e=>e.target.style.borderColor='var(--border-default)'}
+                      />
                     </div>
                   </div>
                 </div>
@@ -2649,7 +2719,7 @@
         (async () => {
           try {
             // 1. Géocode l'adresse
-            const addr = (formData?.address || '') + ', France';
+            const addr = (formData?.lawyerCity || formData?.address || '') + ', France';
             const geoR = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`);
             const geoD = await geoR.json();
             if (!geoD.length) { setStatus('error'); return; }
