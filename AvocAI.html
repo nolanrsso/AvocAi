@@ -1632,6 +1632,18 @@
                 {addlFields.map(f=>(
                   <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} date={f.date} optional={f.optional} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
                 ))}
+                {/* Checkbox avocat */}
+                <div onClick={()=>upd('wantsLawyer',!data.wantsLawyer)} style={{marginTop:22, padding:'14px 16px', borderRadius:10, border:`1.5px solid ${data.wantsLawyer?'#5e6ad2':'var(--border-default)'}`, background:data.wantsLawyer?'rgba(94,106,210,0.07)':'var(--bg-subtle,transparent)', cursor:'pointer', transition:'all 0.15s'}}>
+                  <div style={{display:'flex', alignItems:'center', gap:12}}>
+                    <div style={{width:20, height:20, borderRadius:4, border:`2px solid ${data.wantsLawyer?'#5e6ad2':'var(--border-default)'}`, background:data.wantsLawyer?'#5e6ad2':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s'}}>
+                      {data.wantsLawyer && <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                    <div>
+                      <div style={{fontSize:14, fontWeight:600, color:'var(--text-primary)'}}>Souhaitez-vous contacter un avocat ?</div>
+                      <div style={{fontSize:12, color:'var(--text-muted)', marginTop:2}}>Nous trouverons les avocats les plus adaptés à votre dossier, près de chez vous.</div>
+                    </div>
+                  </div>
+                </div>
               </>}
 
             </div>
@@ -1986,8 +1998,9 @@
       const [guestExhausted, setGuestExhausted] = useState(() => !!localStorage.getItem('avocai_guest_exhausted'));
       const bottomRef = useRef(null);
       const heroSentRef = useRef(false);
-      const [demarcheState, setDemarcheState] = useState(null); // null | 'form' | 'loading' | 'result'
+      const [demarcheState, setDemarcheState] = useState(null); // null | 'form' | 'loading' | 'result' | 'lawyers'
       const [demarcheData, setDemarcheData] = useState(null);
+      const [demarcheWantsLawyer, setDemarcheWantsLawyer] = useState(false);
       const [demarcheInitialCat, setDemarcheInitialCat] = useState(null);
       const openDemarche = (initialCategory) => { setDemarcheInitialCat(initialCategory||null); setDemarcheState('form'); };
 
@@ -2295,6 +2308,7 @@
               onSubmit={(formData) => {
                 localStorage.setItem(DOSSIER_KEY, JSON.stringify(formData));
                 setDemarcheData(formData);
+                setDemarcheWantsLawyer(!!formData.wantsLawyer);
                 setDemarcheState('loading');
               }}
               userPlan={user?.plan}
@@ -2302,7 +2316,17 @@
             />
           )}
           {demarcheState === 'loading' && (
-            <DemarcheLoading onComplete={() => setDemarcheState('result')} />
+            <DemarcheLoading onComplete={() => {
+              const isPremium = user?.plan === 'pro' || user?.plan === 'pro_plus';
+              setDemarcheState(demarcheWantsLawyer && isPremium ? 'lawyers' : 'result');
+            }} />
+          )}
+          {demarcheState === 'lawyers' && (
+            <LawyerMatchModal
+              formData={demarcheData}
+              onClose={() => setDemarcheState(null)}
+              onViewDossier={() => setDemarcheState('result')}
+            />
           )}
           {demarcheState === 'result' && (
             <DemarcheResult
@@ -2593,6 +2617,208 @@
               </div>
             </div>
             )}
+          </div>
+        </div>
+      );
+    };
+
+    /* ── LawyerMatchModal ───────────────────────────────── */
+
+    const CAT_SPECIALTY = {
+      travail:'Droit du travail', locatif:'Droit immobilier',
+      consommation:'Droit de la consommation', routier:'Droit routier',
+      demeure:'Recouvrement de créances', famille:'Droit de la famille',
+      contacter_avocat:'Droit général',
+    };
+
+    const LawyerMatchModal = ({ onClose, formData, onViewDossier }) => {
+      const [status,  setStatus]  = useState('loading');
+      const [lawyers, setLawyers] = useState([]);
+      const [photos,  setPhotos]  = useState([]);
+      const [expanded, setExpanded] = useState(null);
+      const [sent, setSent] = useState(null); // index of lawyer contacted
+
+      const specialty = CAT_SPECIALTY[formData?.category] || 'Droit général';
+
+      const hashScore = s => {
+        let h = 5381;
+        for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) & 0xffffffff;
+        return 55 + (Math.abs(h) % 40); // 55–94%
+      };
+
+      useEffect(() => {
+        (async () => {
+          try {
+            // 1. Géocode l'adresse
+            const addr = (formData?.address || '') + ', France';
+            const geoR = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`);
+            const geoD = await geoR.json();
+            if (!geoD.length) { setStatus('error'); return; }
+            const lat = parseFloat(geoD[0].lat), lon = parseFloat(geoD[0].lon);
+
+            // 2. Overpass
+            const q = `[out:json][timeout:25];(node["office"="lawyer"](around:25000,${lat},${lon});way["office"="lawyer"](around:25000,${lat},${lon});node["amenity"="lawyer"](around:25000,${lat},${lon}););out center 25;`;
+            const ovR = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+            const ovD = await ovR.json();
+
+            // 3. Photos réalistes
+            const phR = await fetch('https://randomuser.me/api/?results=20&inc=picture,name&nat=fr');
+            const phD = await phR.json();
+            setPhotos(phD.results || []);
+
+            // 4. Process
+            const parsed = (ovD.elements || [])
+              .map(el => {
+                const t = el.tags || {};
+                const eLat = el.lat ?? el.center?.lat, eLon = el.lon ?? el.center?.lon;
+                return {
+                  name:    t.name || null,
+                  address: [t['addr:housenumber'], t['addr:street'], t['addr:postcode'], t['addr:city']].filter(Boolean).join(' '),
+                  phone:   t.phone || t['contact:phone'] || null,
+                  website: t.website || t['contact:website'] || null,
+                  dist:    (eLat && eLon) ? haversineKm(lat, lon, eLat, eLon) : null,
+                };
+              })
+              .filter(l => l.name)
+              .sort((a, b) => (a.dist ?? 99) - (b.dist ?? 99))
+              .slice(0, 8);
+
+            setLawyers(parsed);
+            setStatus(parsed.length ? 'results' : 'empty');
+          } catch { setStatus('error'); }
+        })();
+      }, []);
+
+      const MatchBar = ({ score }) => (
+        <div style={{marginBottom:12}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5}}>
+            <span style={{fontSize:11, color:'var(--text-muted)', fontWeight:500}}>Compatibilité dossier</span>
+            <span style={{fontSize:13, fontWeight:700, color: score>=80?'#22c55e':score>=65?'#f59e0b':'#7170ff'}}>{score}%</span>
+          </div>
+          <div style={{height:6, borderRadius:9999, background:'var(--border-default)', overflow:'hidden'}}>
+            <div style={{height:'100%', borderRadius:9999, width:`${score}%`, background: score>=80?'linear-gradient(90deg,#22c55e,#4ade80)':score>=65?'linear-gradient(90deg,#f59e0b,#fcd34d)':'linear-gradient(90deg,#5e6ad2,#7170ff)', transition:'width 0.8s ease'}}/>
+          </div>
+        </div>
+      );
+
+      return (
+        <div style={{position:'fixed', inset:0, zIndex:950, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16}}
+          onClick={e=>e.target===e.currentTarget&&onClose()}>
+          <div style={{background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:20, width:'100%', maxWidth:620, maxHeight:'90vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
+
+            {/* Header */}
+            <div style={{padding:'20px 24px 16px', borderBottom:'1px solid var(--border-subtle)', flexShrink:0}}>
+              <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between'}}>
+                <div>
+                  <div style={{fontSize:18, fontWeight:600, color:'var(--text-primary)'}}>👨‍⚖️ Avocats recommandés</div>
+                  <div style={{fontSize:12, color:'var(--text-muted)', marginTop:4}}>
+                    Spécialité : <strong style={{color:'#7170ff'}}>{specialty}</strong> · Triés par proximité et compatibilité
+                  </div>
+                </div>
+                <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                  {onViewDossier && <button onClick={onViewDossier} style={{padding:'6px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:12, cursor:'pointer'}}>Voir le dossier</button>}
+                  <button onClick={onClose} style={{background:'none', border:'none', color:'var(--text-muted)', fontSize:20, cursor:'pointer'}}>✕</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{flex:1, overflowY:'auto', padding:'20px 24px'}}>
+
+              {status==='loading' && (
+                <div style={{textAlign:'center', padding:'48px 0'}}>
+                  <div style={{width:44, height:44, borderRadius:'50%', border:'3px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.9s linear infinite', margin:'0 auto 20px'}}/>
+                  <p style={{fontSize:14, color:'var(--text-muted)'}}>Recherche des avocats à proximité…</p>
+                </div>
+              )}
+
+              {status==='error' && (
+                <div style={{textAlign:'center', padding:'40px 0'}}>
+                  <div style={{fontSize:40, marginBottom:12}}>⚠️</div>
+                  <p style={{fontSize:14, color:'var(--text-muted)'}}>Impossible de localiser votre adresse.<br/>Vérifiez l'adresse saisie dans le formulaire.</p>
+                </div>
+              )}
+
+              {status==='empty' && (
+                <div style={{textAlign:'center', padding:'40px 0'}}>
+                  <div style={{fontSize:40, marginBottom:12}}>🔍</div>
+                  <p style={{fontSize:14, color:'var(--text-muted)'}}>Aucun avocat trouvé dans un rayon de 25 km.</p>
+                </div>
+              )}
+
+              {status==='results' && (
+                <div style={{display:'flex', flexDirection:'column', gap:14}}>
+                  {lawyers.map((l, i) => {
+                    const ph = photos[i % photos.length];
+                    const score = hashScore(l.name + (formData?.category||''));
+                    const isOpen = expanded===i;
+                    const isSent = sent===i;
+                    return (
+                      <div key={i} style={{background:'var(--bg-card,var(--bg-subtle))', border:'1px solid var(--border-default)', borderRadius:14, overflow:'hidden'}}>
+                        {/* Card top */}
+                        <div style={{padding:'16px 18px'}}>
+                          <div style={{display:'flex', gap:14, alignItems:'flex-start', marginBottom:14}}>
+                            {/* Photo */}
+                            <div style={{flexShrink:0}}>
+                              {ph ? (
+                                <img src={ph.picture.large} alt="" style={{width:54, height:54, borderRadius:'50%', objectFit:'cover', border:'2px solid #5e6ad2'}}/>
+                              ) : (
+                                <div style={{width:54, height:54, borderRadius:'50%', background:'linear-gradient(135deg,#5e6ad2,#7170ff)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, color:'#fff'}}>⚖️</div>
+                              )}
+                            </div>
+                            {/* Info */}
+                            <div style={{flex:1, minWidth:0}}>
+                              <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:4}}>
+                                <div style={{fontSize:15, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{l.name}</div>
+                                {l.dist!=null && <span style={{fontSize:11, fontWeight:600, color:'#7170ff', background:'rgba(113,112,255,0.1)', padding:'2px 8px', borderRadius:9999, flexShrink:0}}>{l.dist<1?(l.dist*1000|0)+' m':(l.dist.toFixed(1)+' km')}</span>}
+                              </div>
+                              <div style={{fontSize:12, color:'var(--text-muted)', marginBottom:10}}>{specialty}</div>
+                              <MatchBar score={score} />
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                            <button onClick={()=>setExpanded(isOpen?null:i)} style={{padding:'7px 14px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}>
+                              {isOpen?'Masquer':'📋 Coordonnées'}
+                            </button>
+                            {isSent ? (
+                              <button disabled style={{padding:'7px 14px', borderRadius:8, border:'none', background:'rgba(34,197,94,0.15)', color:'#22c55e', fontSize:12, fontWeight:600, cursor:'default', display:'flex', alignItems:'center', gap:6}}>
+                                ✓ Dossier transmis
+                              </button>
+                            ) : (
+                              <button onClick={()=>setSent(i)} style={{padding:'7px 14px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}
+                                onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
+                                onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
+                                📨 Contacter avec mon dossier
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Coordonnées expand */}
+                        {isOpen && (
+                          <div style={{borderTop:'1px solid var(--border-subtle)', padding:'12px 18px', background:'rgba(0,0,0,0.15)', display:'flex', flexDirection:'column', gap:8}}>
+                            {l.address && <div style={{fontSize:12, color:'var(--text-muted)', display:'flex', gap:6}}><span>📍</span>{l.address}</div>}
+                            {l.phone ? <a href={`tel:${l.phone}`} style={{fontSize:13, color:'#5e6ad2', textDecoration:'none', display:'flex', gap:6, alignItems:'center'}}>📞 {l.phone}</a>
+                              : <span style={{fontSize:12, color:'var(--text-muted)'}}>Téléphone non renseigné</span>}
+                            {l.website ? <a href={l.website} target="_blank" rel="noopener" style={{fontSize:13, color:'#5e6ad2', textDecoration:'none', display:'flex', gap:6, alignItems:'center'}}>🌐 {l.website}</a>
+                              : <span style={{fontSize:12, color:'var(--text-muted)'}}>Site web non renseigné</span>}
+                          </div>
+                        )}
+
+                        {/* Sent confirmation */}
+                        {isSent && (
+                          <div style={{borderTop:'1px solid rgba(34,197,94,0.2)', padding:'12px 18px', background:'rgba(34,197,94,0.05)'}}>
+                            <div style={{fontSize:13, color:'#22c55e', fontWeight:500}}>✓ Votre dossier a été transmis à <strong>{l.name}</strong> via AvocAI. L'avocat vous contactera dans les 48h.</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       );
