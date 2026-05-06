@@ -1680,10 +1680,6 @@
 
               {/* Step 4 — Infos complémentaires */}
               {step===4 && <>
-                <div style={{fontSize:13, color:'var(--text-muted)', marginBottom:16, lineHeight:1.5}}>Ces informations spécifiques permettent de générer des documents précis et adaptés à votre dossier.</div>
-                {addlFields.map(f=>(
-                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} date={f.date} optional={f.optional} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
-                ))}
                 {/* Checkbox avocat + localisation */}
                 <div style={{marginTop:22, borderRadius:12, border:`1.5px solid ${data.wantsLawyer?'#5e6ad2':'var(--border-default)'}`, overflow:'hidden', transition:'border-color 0.2s'}}>
                   <div onClick={()=>upd('wantsLawyer',!data.wantsLawyer)} style={{padding:'14px 16px', background:data.wantsLawyer?'rgba(94,106,210,0.07)':'var(--bg-subtle,transparent)', cursor:'pointer', transition:'background 0.2s'}}>
@@ -1714,6 +1710,10 @@
                     </div>
                   </div>
                 </div>
+                <div style={{fontSize:13, color:'var(--text-muted)', margin:'20px 0 16px', lineHeight:1.5}}>Ces informations spécifiques permettent de générer des documents précis et adaptés à votre dossier.</div>
+                {addlFields.map(f=>(
+                  <DmField key={f.id} id={f.id} label={f.label} placeholder={f.placeholder} tooltip={f.tooltip} textarea={f.textarea} numeric={f.numeric} date={f.date} optional={f.optional} value={data.addl[f.id]||''} onChange={v=>updAddl(f.id,v)}/>
+                ))}
               </>}
 
             </div>
