@@ -333,6 +333,78 @@ app.delete('/api/dossiers/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// Chat IA spécialisé pour modifier un dossier
+app.post('/api/dossiers/:id/chat', requireAuth, async (req, res) => {
+  const { message, history } = req.body || {};
+  if (!message) return res.status(400).json({ error: 'Message manquant.' });
+
+  // Vérifie que le user a Premium+
+  const userRow = db.prepare('SELECT plan FROM users WHERE id = ?').get(req.user.id);
+  if (userRow?.plan !== 'pro_plus' && userRow?.plan !== 'admin') {
+    return res.status(403).json({ error: 'Réservé aux abonnés Premium+.' });
+  }
+
+  const row = db.prepare('SELECT * FROM dossiers WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!row) return res.status(404).json({ error: 'Dossier introuvable.' });
+
+  let dossierData;
+  try { dossierData = JSON.parse(row.data || '{}'); } catch { dossierData = {}; }
+
+  const SYSTEM = `Tu es l'assistant juridique IA spécialisé dans la modification de dossiers AvocAI.
+
+CONTEXTE — Voici le dossier actuel de l'utilisateur (catégorie : ${row.category}, titre : ${row.title}) :
+\`\`\`json
+${JSON.stringify(dossierData, null, 2)}
+\`\`\`
+
+TON RÔLE :
+- Aider l'utilisateur à modifier, compléter, clarifier ou améliorer ce dossier juridique.
+- Répondre à ses questions sur le dossier.
+- Suggérer des corrections, des ajouts pertinents.
+
+RÈGLE STRICTE — Réponds UNIQUEMENT en JSON valide avec ce format :
+{
+  "reply": "Ta réponse claire et utile en français (max 4-5 phrases)",
+  "updatedData": null | { ...nouveau dossier complet... }
+}
+
+Si l'utilisateur demande une modification précise (changement d'adresse, correction d'un nom, ajout d'un détail, etc.), inclus le dossier complet modifié dans "updatedData". Sinon "updatedData" doit être null.
+
+Ne réponds JAMAIS hors JSON. Pas de markdown, pas de \`\`\`.`;
+
+  const historyMessages = (Array.isArray(history) ? history : []).slice(-10).map(m => ({
+    role: m.role === 'ai' ? 'assistant' : 'user',
+    content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+  }));
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 1500,
+      messages: [
+        { role: 'system', content: SYSTEM },
+        ...historyMessages,
+        { role: 'user', content: message.trim() },
+      ],
+      response_format: { type: 'json_object' },
+    });
+
+    const raw = response.choices[0]?.message?.content || '{}';
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { parsed = { reply: raw, updatedData: null }; }
+
+    if (parsed.updatedData && typeof parsed.updatedData === 'object') {
+      db.prepare('UPDATE dossiers SET data = ? WHERE id = ? AND user_id = ?')
+        .run(JSON.stringify(parsed.updatedData), req.params.id, req.user.id);
+    }
+
+    res.json({ reply: parsed.reply || 'Réponse vide.', updatedData: parsed.updatedData || null });
+  } catch (err) {
+    console.error('Dossier chat error:', err.status, err.message);
+    res.status(500).json({ error: 'Erreur IA. Veuillez réessayer.' });
+  }
+});
+
 // ── Conversations ───────────────────────────────────────
 app.get('/api/conversations', requireAuth, (req, res) => {
   const rows = db.prepare(

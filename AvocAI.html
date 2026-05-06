@@ -1555,6 +1555,21 @@
     const DmRow  = ({children}) => <div style={{display:'flex', gap:12}}>{children}</div>;
     const DmHalf = ({children}) => <div style={{flex:1,minWidth:0}}>{children}</div>;
 
+    /* ── DmAutocomplete (DmField + suggestions) ───────────── */
+    const DmAutocomplete = ({ label, placeholder, value, onChange, optional, tooltip, fetchFn, formatLabel, formatHint, minChars }) => (
+      <div style={{marginBottom:14}}>
+        <label style={dmLbl}>
+          {label}
+          {optional && <span style={{fontSize:11, color:'var(--text-subtle)', fontWeight:400, marginLeft:5}}>(optionnel)</span>}
+          {tooltip && <InfoTip text={tooltip}/>}
+        </label>
+        <Autocomplete
+          value={value} onChange={onChange} placeholder={placeholder}
+          fetchFn={fetchFn} formatLabel={formatLabel} formatHint={formatHint} minChars={minChars}
+        />
+      </div>
+    );
+
     const DRAFT_KEY    = 'avocai_demarche_draft';
     const IDENTITY_KEY = 'avocai_identity_saved';
 
@@ -1612,7 +1627,11 @@
         if (step===1) return data.firstName && data.lastName && data.birthDate && data.birthPlace && data.nationality && data.address && data.phone && data.email && data.profession;
         if (step===2) return data.category && data.subcategory;
         if (step===3) return data.problemDescription && data.timeline && data.adverseParty;
-        if (step===4) return addlFields.every(f => f.optional || (data.addl[f.id]||'').toString().trim());
+        if (step===4) {
+          const addlOk = addlFields.every(f => f.optional || (data.addl[f.id]||'').toString().trim());
+          const lawyerOk = !data.wantsLawyer || (data.lawyerCity||'').toString().trim();
+          return addlOk && lawyerOk;
+        }
         return true;
       };
 
@@ -1662,13 +1681,24 @@
               {step===1 && <>
                 <DmRow><DmHalf><DmField id="fn" label="Prénom *" placeholder="Jean" value={data.firstName} onChange={v=>upd('firstName',v)}/></DmHalf>
                      <DmHalf><DmField id="ln" label="Nom *"    placeholder="Dupont" value={data.lastName} onChange={v=>upd('lastName',v)}/></DmHalf></DmRow>
-                <DmRow><DmHalf><DmField id="bd" label="Date de naissance *" placeholder="JJ/MM/AAAA" date value={data.birthDate} onChange={v=>upd('birthDate',v)}/></DmHalf>
-                     <DmHalf><DmField id="bp" label="Lieu de naissance *" placeholder="Paris" value={data.birthPlace} onChange={v=>upd('birthPlace',v)}/></DmHalf></DmRow>
-                <DmField id="nat" label="Nationalité *" placeholder="Française" value={data.nationality} onChange={v=>upd('nationality',v)}/>
-                <DmField id="addr" label="Adresse postale complète *" placeholder="12 rue de la Paix, 75001 Paris" value={data.address} onChange={v=>upd('address',v)}/>
+                <DmRow>
+                  <DmHalf><DmField id="bd" label="Date de naissance *" placeholder="JJ/MM/AAAA" date value={data.birthDate} onChange={v=>upd('birthDate',v)}/></DmHalf>
+                  <DmHalf><DmAutocomplete label="Lieu de naissance *" placeholder="Ex : Paris, Lyon, Marseille…"
+                    value={data.birthPlace} onChange={v=>upd('birthPlace',v)}
+                    fetchFn={fetchCommunes} formatLabel={c=>c.nom} formatHint={c=>c.codesPostaux?.[0]||''}/></DmHalf>
+                </DmRow>
+                <DmAutocomplete label="Nationalité *" placeholder="Ex : Française, Belge, Algérienne…"
+                  value={data.nationality} onChange={v=>upd('nationality',v)}
+                  fetchFn={filterStatic(NATIONALITIES)} formatLabel={c=>c.name}/>
+                <DmAutocomplete label="Adresse postale complète *" placeholder="12 rue de la Paix, 75001 Paris"
+                  value={data.address} onChange={v=>upd('address',v)}
+                  fetchFn={fetchAddresses} formatLabel={a=>a.label} formatHint={a=>a.context||''} minChars={3}/>
                 <DmRow><DmHalf><DmField id="tel" label="Téléphone *" placeholder="06 12 34 56 78" value={data.phone} onChange={v=>upd('phone',v)}/></DmHalf>
                      <DmHalf><DmField id="em" label="Email *" placeholder="vous@exemple.com" value={data.email} onChange={v=>upd('email',v)}/></DmHalf></DmRow>
-                <DmField id="pro" label="Profession *" placeholder="Ex : Salarié, Indépendant, Étudiant…" value={data.profession} onChange={v=>upd('profession',v)} tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."/>
+                <DmAutocomplete label="Profession *" placeholder="Ex : Salarié, Indépendant, Étudiant…"
+                  value={data.profession} onChange={v=>upd('profession',v)}
+                  tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."
+                  fetchFn={filterStatic(PROFESSIONS)} formatLabel={c=>c.name}/>
                 {/* Bouton mémoriser identité */}
                 <IdentitySaveBtn data={data} />
               </>}
@@ -1728,7 +1758,7 @@
                     </div>
                   </div>
                   {/* Swipe reveal — champ localisation */}
-                  <div style={{maxHeight: data.wantsLawyer ? '260px' : '0', overflow: data.wantsLawyer ? 'visible' : 'hidden', transition:'max-height 0.35s cubic-bezier(0.4,0,0.2,1)'}}>
+                  <div style={{maxHeight: data.wantsLawyer ? '160px' : '0', overflow:'hidden', transition:'max-height 0.35s cubic-bezier(0.4,0,0.2,1)'}}>
                     <div style={{padding:'0 16px 16px', borderTop:`1px solid rgba(94,106,210,0.2)`, paddingTop:14}} onClick={e=>e.stopPropagation()}>
                       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
                         <label style={{fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em'}}>
@@ -1769,10 +1799,11 @@
                       onMouseLeave={e=>{ if(canNext()) e.currentTarget.style.background='#5e6ad2'; }}>
                       Suivant →
                     </button>
-                  : <button onClick={()=>{ localStorage.removeItem(DRAFT_KEY); onSubmit(data); }}
-                      style={{padding:'9px 24px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:14, fontWeight:590, cursor:'pointer'}}
-                      onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
-                      onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
+                  : <button onClick={()=>{ if(canNext()){ localStorage.removeItem(DRAFT_KEY); onSubmit(data); } }} disabled={!canNext()}
+                      title={!canNext() ? 'Veuillez remplir tous les champs obligatoires.' : ''}
+                      style={{padding:'9px 24px', borderRadius:8, border:'none', background: canNext()?'#5e6ad2':'var(--border-default)', color: canNext()?'#fff':'var(--text-subtle)', fontSize:14, fontWeight:590, cursor: canNext()?'pointer':'not-allowed', transition:'background 0.15s'}}
+                      onMouseEnter={e=>{ if(canNext()) e.currentTarget.style.background='#828fff'; }}
+                      onMouseLeave={e=>{ if(canNext()) e.currentTarget.style.background='#5e6ad2'; }}>
                       Générer mon dossier
                     </button>
                 }
@@ -2742,40 +2773,51 @@
       );
     };
 
-    /* ── CommuneAutocomplete ───────────────────────────── */
+    /* ── Autocomplete générique (Portal-based) ─────────── */
 
-    const CommuneAutocomplete = ({ value, onChange, placeholder, inputStyle }) => {
+    const Autocomplete = ({ value, onChange, placeholder, fetchFn, formatLabel, formatHint, inputStyle, minChars = 1 }) => {
       const [suggestions, setSuggestions] = useState([]);
-      const [open, setOpen]               = useState(false);
-      const [query, setQuery]             = useState(value || '');
-      const debounceRef   = useRef(null);
-      const containerRef  = useRef(null);
+      const [open, setOpen] = useState(false);
+      const [query, setQuery] = useState(value || '');
+      const [rect, setRect] = useState(null);
+      const debounceRef = useRef(null);
+      const inputRef = useRef(null);
 
-      // Sync external value (e.g. "Me localiser" reverse-geocode)
       useEffect(() => { setQuery(value || ''); }, [value]);
 
-      const fetchSuggestions = q => {
+      const updateRect = () => {
+        if (!inputRef.current) return;
+        const r = inputRef.current.getBoundingClientRect();
+        setRect({ left: r.left, top: r.bottom + 4, width: r.width });
+      };
+
+      useEffect(() => {
+        if (!open) return;
+        updateRect();
+        const onScroll = () => updateRect();
+        window.addEventListener('scroll', onScroll, true);
+        window.addEventListener('resize', onScroll);
+        return () => { window.removeEventListener('scroll', onScroll, true); window.removeEventListener('resize', onScroll); };
+      }, [open]);
+
+      const runFetch = q => {
         clearTimeout(debounceRef.current);
-        if (q.length < 2) { setSuggestions([]); setOpen(false); return; }
+        if (q.length < minChars) { setSuggestions([]); setOpen(false); return; }
         debounceRef.current = setTimeout(async () => {
           try {
-            const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&boost=population&limit=8&fields=nom,codesPostaux,departement`);
-            const d = await r.json();
-            setSuggestions(Array.isArray(d) ? d : []);
-            setOpen(Array.isArray(d) && d.length > 0);
-          } catch { setSuggestions([]); }
-        }, 200);
+            const results = await fetchFn(q);
+            const arr = Array.isArray(results) ? results : [];
+            setSuggestions(arr);
+            setOpen(arr.length > 0);
+            if (arr.length > 0) updateRect();
+          } catch { setSuggestions([]); setOpen(false); }
+        }, 180);
       };
 
-      const handleInput = e => {
-        const v = e.target.value;
-        setQuery(v);
-        onChange(v);
-        fetchSuggestions(v);
-      };
+      const handleInput = e => { const v = e.target.value; setQuery(v); onChange(v); runFetch(v); };
 
-      const select = c => {
-        const label = c.nom + (c.codesPostaux?.[0] ? ' (' + c.codesPostaux[0] + ')' : '') + (c.departement?.nom ? ', ' + c.departement.nom : '');
+      const select = item => {
+        const label = formatLabel(item);
         setQuery(label);
         onChange(label);
         setSuggestions([]);
@@ -2783,40 +2825,84 @@
       };
 
       useEffect(() => {
-        const handler = e => { if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false); };
+        const handler = e => {
+          if (inputRef.current && inputRef.current.contains(e.target)) return;
+          if (e.target.closest && e.target.closest('[data-autocomplete-dropdown]')) return;
+          setOpen(false);
+        };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
       }, []);
 
       return (
-        <div ref={containerRef} style={{ position:'relative', width:'100%' }}>
+        <>
           <input
+            ref={inputRef}
             value={query}
             onChange={handleInput}
-            onFocus={e => { e.target.style.borderColor='#5e6ad2'; if (suggestions.length) setOpen(true); }}
+            onFocus={e => { e.target.style.borderColor='#5e6ad2'; updateRect(); if (suggestions.length) setOpen(true); else if (query.length >= minChars) runFetch(query); }}
             onBlur={e => e.target.style.borderColor='var(--border-default)'}
-            placeholder={placeholder || 'Rechercher une commune…'}
+            placeholder={placeholder}
             autoComplete="off"
             style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-input,var(--bg-panel))', color:'var(--text-primary)', fontSize:14, outline:'none', boxSizing:'border-box', ...(inputStyle||{}) }}
           />
-          {open && suggestions.length > 0 && (
-            <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:1200, marginTop:4, background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:8, overflow:'hidden', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
-              {suggestions.map((c, i) => (
+          {open && suggestions.length > 0 && rect && ReactDOM.createPortal(
+            <div data-autocomplete-dropdown
+              style={{ position:'fixed', top: rect.top, left: rect.left, width: rect.width, zIndex:9999, background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:8, overflow:'hidden', boxShadow:'0 12px 32px rgba(0,0,0,0.5)', maxHeight:280, overflowY:'auto' }}>
+              {suggestions.map((item, i) => (
                 <div key={i}
-                  onMouseDown={e => { e.preventDefault(); select(c); }}
-                  style={{ padding:'10px 14px', cursor:'pointer', borderBottom: i<suggestions.length-1?'1px solid var(--border-subtle)':'none', fontSize:13, color:'var(--text-primary)', display:'flex', alignItems:'center', justifyContent:'space-between', transition:'background 0.1s' }}
+                  onMouseDown={e => { e.preventDefault(); select(item); }}
+                  style={{ padding:'10px 14px', cursor:'pointer', borderBottom: i<suggestions.length-1?'1px solid var(--border-subtle)':'none', fontSize:13, color:'var(--text-primary)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, transition:'background 0.1s' }}
                   onMouseEnter={e => e.currentTarget.style.background='rgba(94,106,210,0.12)'}
                   onMouseLeave={e => e.currentTarget.style.background='transparent'}
                 >
-                  <span style={{ fontWeight:500 }}>{c.nom}</span>
-                  <span style={{ fontSize:11, color:'var(--text-muted)' }}>{c.codesPostaux?.[0]}{c.departement?.nom ? ' · ' + c.departement.nom : ''}</span>
+                  <span style={{ fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{formatLabel(item)}</span>
+                  {formatHint && <span style={{ fontSize:11, color:'var(--text-muted)', flexShrink:0 }}>{formatHint(item)}</span>}
                 </div>
               ))}
-            </div>
+            </div>,
+            document.body
           )}
-        </div>
+        </>
       );
     };
+
+    /* ── Données statiques pour autocomplete ─────────── */
+
+    const NATIONALITIES = ['Française','Algérienne','Marocaine','Tunisienne','Italienne','Espagnole','Portugaise','Allemande','Belge','Suisse','Britannique','Roumaine','Polonaise','Sénégalaise','Ivoirienne','Camerounaise','Malienne','Turque','Chinoise','Vietnamienne','Russe','Ukrainienne','Américaine','Canadienne','Brésilienne','Argentine','Mexicaine','Indienne','Pakistanaise','Bangladaise','Sri-lankaise','Japonaise','Coréenne','Thaïlandaise','Philippine','Indonésienne','Malgache','Comorienne','Mauritanienne','Nigériane','Ghanéenne','Éthiopienne','Égyptienne','Libanaise','Syrienne','Irakienne','Iranienne','Afghane','Israélienne','Jordanienne','Saoudienne','Émiratie','Australienne','Néerlandaise','Suédoise','Norvégienne','Danoise','Finlandaise','Grecque','Bulgare','Hongroise','Tchèque','Slovaque','Slovène','Croate','Serbe','Bosnienne','Albanaise','Autrichienne','Irlandaise','Luxembourgeoise','Monégasque','Andorrane','Apatride'];
+
+    const PROFESSIONS = ['Salarié(e)','Cadre','Cadre supérieur(e)','Employé(e)','Ouvrier/Ouvrière','Technicien(ne)','Agent de maîtrise','Fonctionnaire','Indépendant(e)','Auto-entrepreneur','Profession libérale','Étudiant(e)','Apprenti(e)','Stagiaire','Retraité(e)','Sans emploi','En recherche d\'emploi','Intérimaire','Artisan','Commerçant(e)','Chef d\'entreprise','Dirigeant(e)','Enseignant(e)','Professeur(e)','Médecin','Infirmier/Infirmière','Aide-soignant(e)','Avocat(e)','Notaire','Huissier','Magistrat(e)','Ingénieur(e)','Développeur/Développeuse','Architecte','Comptable','Expert-comptable','Gestionnaire','Commercial(e)','Vendeur/Vendeuse','Caissier(e)','Serveur/Serveuse','Cuisinier/Cuisinière','Boulanger/Boulangère','Coiffeur/Coiffeuse','Esthéticien(ne)','Chauffeur (taxi/VTC/poids lourd)','Livreur/Livreuse','Agriculteur/Agricultrice','Maçon','Plombier','Électricien(ne)','Mécanicien(ne)','Menuisier','Peintre','Femme/Homme au foyer','Bénévole','Militaire','Policier(e)','Gendarme','Pompier','Journaliste','Photographe','Artiste','Musicien(ne)'];
+
+    /* ── Fetchers spécifiques ──────────────────────── */
+
+    const fetchCommunes = async q => {
+      const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&boost=population&limit=8&fields=nom,codesPostaux,departement`);
+      return r.ok ? await r.json() : [];
+    };
+
+    const fetchAddresses = async q => {
+      const r = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=6`);
+      if (!r.ok) return [];
+      const d = await r.json();
+      return (d.features || []).map(f => f.properties);
+    };
+
+    const filterStatic = list => async q => {
+      const lq = q.toLowerCase();
+      return list.filter(item => item.toLowerCase().includes(lq)).slice(0, 8).map(name => ({ name }));
+    };
+
+    /* ── CommuneAutocomplete (wrapper pour usage existant) ─ */
+
+    const CommuneAutocomplete = ({ value, onChange, placeholder, inputStyle }) => (
+      <Autocomplete
+        value={value} onChange={onChange} placeholder={placeholder || 'Rechercher une commune…'}
+        inputStyle={inputStyle} minChars={1}
+        fetchFn={fetchCommunes}
+        formatLabel={c => c.nom + (c.codesPostaux?.[0] ? ' (' + c.codesPostaux[0] + ')' : '') + (c.departement?.nom ? ', ' + c.departement.nom : '')}
+        formatHint={c => c.codesPostaux?.[0] ? '' : ''}
+      />
+    );
 
     /* ── LawyerMatchModal ───────────────────────────────── */
 
@@ -3195,6 +3281,109 @@
       );
     };
 
+    /* ── DossierChat (IA modif dossier — Premium+) ─────── */
+
+    const DossierChat = ({ dossier, onUpdate, userPlan }) => {
+      const [messages, setMessages] = useState([]);
+      const [input, setInput]       = useState('');
+      const [sending, setSending]   = useState(false);
+      const bottomRef = useRef(null);
+      const isPlus = userPlan === 'pro_plus' || userPlan === 'admin';
+
+      useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, sending]);
+
+      const send = async () => {
+        if (!input.trim() || sending) return;
+        const userMsg = input.trim();
+        setMessages(p => [...p, { role: 'user', content: userMsg }]);
+        setInput('');
+        setSending(true);
+        try {
+          const r = await fetch(`/api/dossiers/${dossier.id}/chat`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userMsg, history: messages }),
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Erreur IA');
+          setMessages(p => [...p, { role: 'ai', content: d.reply, updated: !!d.updatedData }]);
+          if (d.updatedData) onUpdate(d.updatedData);
+        } catch (err) {
+          setMessages(p => [...p, { role: 'error', content: err.message || 'Erreur réseau' }]);
+        }
+        setSending(false);
+      };
+
+      if (!isPlus) {
+        return (
+          <div style={{ display:'flex', flexDirection:'column', height:'100%', alignItems:'center', justifyContent:'center', padding:'20px 16px', textAlign:'center' }}>
+            <div style={{ fontSize:36, marginBottom:12 }}>🔒</div>
+            <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:6 }}>Modification IA</div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', lineHeight:1.6, marginBottom:14 }}>Réservée aux abonnés <strong style={{ color:'#a78bfa' }}>Premium+</strong>.</div>
+            <a href="/#tarifs" style={{ fontSize:11, color:'#7170ff', textDecoration:'none', padding:'6px 12px', borderRadius:6, border:'1px solid rgba(113,112,255,0.4)' }}>Découvrir Premium+ →</a>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+          {/* Header */}
+          <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border-subtle)', flexShrink:0 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', display:'flex', alignItems:'center', gap:7 }}>
+              <span style={{ color:'#7170ff' }}>✦</span> Assistant dossier
+            </div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>Modifiez votre dossier avec l'IA</div>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:'auto', padding:'14px 14px', display:'flex', flexDirection:'column', gap:10 }}>
+            {messages.length === 0 && (
+              <div style={{ fontSize:12, color:'var(--text-muted)', textAlign:'center', padding:'24px 8px', lineHeight:1.6 }}>
+                Demandez des modifications, des reformulations ou posez des questions sur ce dossier.
+                <div style={{ marginTop:14, padding:'10px 12px', background:'rgba(94,106,210,0.06)', border:'1px solid rgba(94,106,210,0.18)', borderRadius:8, fontSize:11, fontStyle:'italic', textAlign:'left', lineHeight:1.6 }}>
+                  Ex : « Corrige mon adresse »<br/>« Reformule plus formel »<br/>« Ajoute un délai de 15 jours »
+                </div>
+              </div>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} style={{ alignSelf: m.role==='user' ? 'flex-end' : 'flex-start', maxWidth:'88%' }}>
+                <div style={{
+                  padding:'8px 12px', borderRadius:10, fontSize:13, lineHeight:1.55, whiteSpace:'pre-wrap',
+                  background: m.role==='user' ? '#5e6ad2' : m.role==='error' ? 'rgba(239,68,68,0.12)' : 'var(--bg-surface)',
+                  color: m.role==='user' ? '#fff' : m.role==='error' ? '#ef4444' : 'var(--text-body)',
+                  border: m.role==='ai' ? '1px solid var(--border-default)' : 'none',
+                }}>{m.content}</div>
+                {m.updated && <div style={{ marginTop:4, fontSize:10, color:'#22c55e', fontWeight:600 }}>✓ Dossier mis à jour</div>}
+              </div>
+            ))}
+            {sending && (
+              <div style={{ alignSelf:'flex-start', display:'flex', gap:4, padding:'10px 12px' }}>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:'#7170ff', animation:'bounce 1.4s infinite' }}/>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:'#7170ff', animation:'bounce 1.4s infinite 0.2s' }}/>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:'#7170ff', animation:'bounce 1.4s infinite 0.4s' }}/>
+              </div>
+            )}
+            <div ref={bottomRef}/>
+          </div>
+
+          {/* Input */}
+          <div style={{ padding:'10px 12px', borderTop:'1px solid var(--border-subtle)', background:'var(--bg-panel)', flexShrink:0 }}>
+            <div style={{ display:'flex', gap:6, alignItems:'flex-end' }}>
+              <textarea value={input} onChange={e=>setInput(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }}
+                placeholder="Demandez une modification…" rows={2}
+                style={{ flex:1, padding:'8px 10px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:13, outline:'none', resize:'none', fontFamily:'inherit', lineHeight:1.5 }}
+                onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'}/>
+              <button onClick={send} disabled={!input.trim() || sending}
+                style={{ width:36, height:36, borderRadius:8, border:'none', background: input.trim()&&!sending?'#5e6ad2':'var(--border-default)', color: input.trim()&&!sending?'#fff':'var(--text-subtle)', cursor: input.trim()&&!sending?'pointer':'default', fontSize:18, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                ↑
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     /* ── DossierListModal ───────────────────────────────── */
 
     const CAT_LABEL_MAP = {
@@ -3206,7 +3395,7 @@
       contacter_avocat:'Droit général',
     };
 
-    const DossierListModal = ({ onClose }) => {
+    const DossierListModal = ({ onClose, userPlan }) => {
       const [dossiers, setDossiers]     = useState([]);
       const [loading, setLoading]       = useState(true);
       const [viewing, setViewing]       = useState(null); // { id, title, category, data, created_at }
@@ -3237,29 +3426,40 @@
         if (viewing?.id === id) setViewing(null);
       };
 
-      // ── Vue document ──
+      // ── Vue document avec chat IA à gauche ──
       if (viewing) {
         const subLabel = viewing.title;
         return (
           <div style={{ position:'fixed', inset:0, zIndex:700, background:'var(--bg-page)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
             {/* Header */}
             <div style={{ height:52, background:'var(--bg-panel)', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', padding:'0 24px', gap:12, flexShrink:0 }}>
-              <button onClick={() => setViewing(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)', display:'flex', alignItems:'center', gap:6 }}>
+              <button onClick={() => setViewing(null)} style={{ background:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)', display:'flex', alignItems:'center', gap:6 }}>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 1L3 6l5 5"/></svg>
                 Retour
               </button>
               <span style={{ fontSize:14, fontWeight:510, color:'var(--text-primary)' }}>📄 {subLabel}</span>
               <span style={{ fontSize:11, color:'var(--text-muted)', background:'rgba(94,106,210,0.1)', border:'1px solid rgba(94,106,210,0.2)', borderRadius:20, padding:'2px 10px' }}>{CAT_LABEL_MAP[viewing.category] || 'Droit général'}</span>
               <div style={{ flex:1 }}/>
-              <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)' }}>✕ Fermer</button>
+              <button onClick={onClose} style={{ background:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)' }}>✕ Fermer</button>
             </div>
-            {/* Document */}
-            <div style={{ flex:1, overflowY:'auto', padding:'32px 24px' }}>
-              <DossierDocument data={viewing.data} subLabel={subLabel} />
-              <div style={{ maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end' }}>
-                <button onClick={() => setViewing(null)} style={{ padding:'10px 22px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:14, fontWeight:510, cursor:'pointer' }}>
-                  Retour à la liste
-                </button>
+            {/* Split layout : chat IA + document */}
+            <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
+              {/* Chat IA gauche */}
+              <div style={{ width:340, borderRight:'1px solid var(--border-default)', background:'var(--bg-panel)', flexShrink:0, display:'flex', flexDirection:'column' }}>
+                <DossierChat
+                  dossier={viewing}
+                  userPlan={userPlan}
+                  onUpdate={newData => setViewing(v => ({ ...v, data: newData }))}
+                />
+              </div>
+              {/* Document droite */}
+              <div style={{ flex:1, overflowY:'auto', padding:'32px 24px' }}>
+                <DossierDocument data={viewing.data} subLabel={subLabel} />
+                <div style={{ maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end' }}>
+                  <button onClick={() => setViewing(null)} style={{ padding:'10px 22px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:14, fontWeight:510, cursor:'pointer' }}>
+                    Retour à la liste
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -3535,7 +3735,7 @@
             ? <LandingPage setPage={setPage} onHeroSend={handleHeroSend} />
             : <ChatInterface setPage={setPage} heroMessage={heroMessage} onHeroMessageConsumed={() => setHeroMessage(null)} onUserUpdate={setAppUser} />}
           {showLawyerModal && <DossierPickerModal onClose={() => setShowLawyerModal(false)} user={appUser} />}
-          {showDossierModal && <DossierListModal onClose={() => setShowDossierModal(false)} />}
+          {showDossierModal && <DossierListModal onClose={() => setShowDossierModal(false)} userPlan={appUser?.plan} />}
         </div>
       );
     };
