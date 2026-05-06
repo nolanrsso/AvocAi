@@ -2312,14 +2312,17 @@
                 }
               } catch {}
             }
-            // Post-upgrade : Premium → recherche avocat ; Premium+ → résultat dossier + sauvegarde serveur
+            // Post-upgrade : oriente vers avocat si demandé, sinon dossier (Premium+) ou avocat (Premium)
             const planVal = me.user?.plan;
             if (planVal === 'pro' || planVal === 'pro_plus') {
               try {
                 const pending = localStorage.getItem(DOSSIER_KEY);
                 if (pending) {
                   const pendingData = JSON.parse(pending);
+                  const wantsLawyer = !!pendingData.wantsLawyer;
                   setDemarcheData(pendingData);
+                  setDemarcheWantsLawyer(wantsLawyer);
+
                   if (planVal === 'pro_plus') {
                     // Sauvegarde serveur du dossier rempli en gratuit (évite de refaire la démarche)
                     const catLabel = DEMARCHE_CATS.find(c=>c.id===pendingData.category)?.label || 'Démarche';
@@ -2329,13 +2332,13 @@
                       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
                       body: JSON.stringify({ title: subLabel, category: pendingData.category, data: pendingData }),
                     }).catch(() => {});
-                    setDemarcheState('result');
-                    localStorage.removeItem(DOSSIER_KEY);
+                    // wantsLawyer → contact avocat direct (avec accès au dossier via onViewDossier), sinon vue dossier
+                    setDemarcheState(wantsLawyer ? 'lawyers' : 'result');
                   } else {
-                    // Premium simple : pas de dossier, direct recherche avocat
+                    // Premium simple : toujours direct recherche avocat
                     setDemarcheState('lawyers');
-                    localStorage.removeItem(DOSSIER_KEY);
                   }
+                  localStorage.removeItem(DOSSIER_KEY);
                 }
               } catch {}
             }
