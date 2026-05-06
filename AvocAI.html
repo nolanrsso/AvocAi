@@ -1554,7 +1554,36 @@
     const DmRow  = ({children}) => <div style={{display:'flex', gap:12}}>{children}</div>;
     const DmHalf = ({children}) => <div style={{flex:1,minWidth:0}}>{children}</div>;
 
-    const DRAFT_KEY = 'avocai_demarche_draft';
+    const DRAFT_KEY    = 'avocai_demarche_draft';
+    const IDENTITY_KEY = 'avocai_identity_saved';
+
+    const IdentitySaveBtn = ({ data }) => {
+      const [saved, setSaved] = useState(() => !!localStorage.getItem(IDENTITY_KEY));
+      const save = e => {
+        e.stopPropagation();
+        const { firstName, lastName, birthDate, birthPlace, nationality, address, phone, email, profession } = data;
+        localStorage.setItem(IDENTITY_KEY, JSON.stringify({ firstName, lastName, birthDate, birthPlace, nationality, address, phone, email, profession }));
+        setSaved(true);
+      };
+      return (
+        <div style={{marginTop:14, display:'flex', justifyContent:'flex-end'}}>
+          {saved ? (
+            <span style={{fontSize:12, color:'#22c55e', display:'flex', alignItems:'center', gap:5}}>
+              <svg width="13" height="13" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#22c55e" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Informations mémorisées
+            </span>
+          ) : (
+            <button type="button" onClick={save}
+              style={{display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:7, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:12, cursor:'pointer', transition:'all 0.15s'}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor='#5e6ad2';e.currentTarget.style.color='#7170ff';}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border-default)';e.currentTarget.style.color='var(--text-muted)';}}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              S'en rappeler pour mes prochaines démarches
+            </button>
+          )}
+        </div>
+      );
+    };
 
     const DemarcheFormModal = ({ onClose, onSubmit, userPlan, initialCategory }) => {
       const [step, setStep] = useState(1);
@@ -1562,10 +1591,12 @@
       const [data, setData] = useState(() => {
         try { const d = localStorage.getItem(DRAFT_KEY); if (d) return JSON.parse(d); } catch {}
         const u = getStoredUser();
+        let saved = {};
+        try { const s = localStorage.getItem('avocai_identity_saved'); if (s) saved = JSON.parse(s); } catch {}
         return {
-          firstName: u?.firstName||'', lastName: u?.lastName||'',
-          birthDate:'', birthPlace:'', nationality:'Française',
-          address:'', phone:'', email: u?.email||'', profession:'',
+          firstName: saved.firstName || u?.firstName||'', lastName: saved.lastName || u?.lastName||'',
+          birthDate: saved.birthDate||'', birthPlace: saved.birthPlace||'', nationality: saved.nationality||'Française',
+          address: saved.address||'', phone: saved.phone||'', email: saved.email || u?.email||'', profession: saved.profession||'',
           category: initialCategory||'', subcategory:'',
           problemDescription:'', timeline:'', adverseParty:'', adverseAddress:'',
           addl:{},
@@ -1637,6 +1668,8 @@
                 <DmRow><DmHalf><DmField id="tel" label="Téléphone *" placeholder="06 12 34 56 78" value={data.phone} onChange={v=>upd('phone',v)}/></DmHalf>
                      <DmHalf><DmField id="em" label="Email *" placeholder="vous@exemple.com" value={data.email} onChange={v=>upd('email',v)}/></DmHalf></DmRow>
                 <DmField id="pro" label="Profession *" placeholder="Ex : Salarié, Indépendant, Étudiant…" value={data.profession} onChange={v=>upd('profession',v)} tooltip="Parfois requis pour l'aide juridictionnelle ou le calcul du préjudice."/>
+                {/* Bouton mémoriser identité */}
+                <IdentitySaveBtn data={data} />
               </>}
 
               {/* Step 2 — Catégorie */}
