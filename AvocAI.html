@@ -612,7 +612,7 @@
       const freeFeatures    = ['5 analyses / jour', 'Évaluation des risques', 'Références aux articles de loi', 'Probabilité de poursuite'];
       const proFeatures     = ['Tout le plan Gratuit', '50 analyses / jour', 'Historique illimité', 'Contactez un avocat adapté à votre situation', 'Support 24h'];
       const proNotAvailable = ['Démarches officielles guidées', 'Formulaires officiels pré-remplis'];
-      const proPlus       = ['Tous les avantages du plan Premium', 'Aide au remplissage de démarches', 'Formulaires officiels pré-remplis', 'Lettres types générées par IA', 'Suivi de dossier pas à pas', 'Alertes délais légaux', 'Support prioritaire 24h'];
+      const proPlus       = ['Tous les avantages du plan Premium', 'Formulaires officiels pré-remplis', 'Lettres types générées par IA', 'Modification du dossier avec une IA spécialisée', 'Alertes délais légaux', 'Support prioritaire 24h', 'Envoi du dossier par email'];
 
       const Check = ({ muted }) => (
         <span style={{ color: muted ? 'var(--text-subtle)' : '#27a644', marginRight: 8, fontSize: 13 }}>{muted ? '✕' : '✓'}</span>
@@ -1794,7 +1794,7 @@
               </p>
               {/* Avantages Premium+ */}
               <div style={{ background:'rgba(167,139,250,0.08)', border:'1px solid rgba(167,139,250,0.25)', borderRadius:12, padding:'16px 20px', marginBottom:24, textAlign:'left' }}>
-                {['Aide au remplissage de démarches','Formulaires officiels pré-remplis','Lettres types générées par IA','Suivi de dossier pas à pas','Alertes délais légaux'].map(f => (
+                {['Formulaires officiels pré-remplis','Lettres types générées par IA','Modification du dossier avec une IA spécialisée','Alertes délais légaux','Support prioritaire 24h'].map(f => (
                   <div key={f} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, fontSize:13, color:'var(--text-body)' }}>
                     <span style={{ color:'#a78bfa', fontWeight:700 }}>✓</span> {f}
                   </div>
@@ -1998,8 +1998,8 @@
             { t: 'Historique illimité' },
             { t: 'Contactez un avocat adapté' },
             { t: 'Support 24h' },
-            { t: 'Lettres types générées par IA', cross: true },
-            { t: 'Suivi de dossier pas à pas', cross: true },
+            { t: 'Modification du dossier avec une IA spécialisée', cross: true },
+            { t: 'Envoi du dossier par email', cross: true },
           ],
         },
         {
@@ -2009,12 +2009,12 @@
           priceW: '4', priceM: '12',
           features: [
             { t: 'Tout le plan Premium', bold: true },
-            { t: 'Lettres types générées par IA' },
             { t: 'Formulaires officiels pré-remplis' },
-            { t: 'Aide au remplissage de démarches' },
-            { t: 'Suivi de dossier pas à pas' },
+            { t: 'Lettres types générées par IA' },
+            { t: 'Modification du dossier avec une IA spécialisée' },
             { t: 'Alertes délais légaux' },
             { t: 'Support prioritaire 24h' },
+            { t: 'Envoi du dossier par email' },
           ],
         },
       ];
