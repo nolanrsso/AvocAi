@@ -335,27 +335,24 @@
                 background: 'var(--btn-bg)', cursor: 'pointer',
                 fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
               }}>Se déconnecter</button>
-              {(user?.plan === 'pro' || user?.plan === 'pro_plus') ? (
-                <>
-                  {user?.plan === 'pro' && (
-                    <button className="nav-try-btn" onClick={() => { setPage('chat'); setTimeout(() => { window.dispatchEvent(new CustomEvent('avocai:open-demarche', { detail: { initialCategory: 'contacter_avocat' } })); }, 100); }}
-                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(113,112,255,0.4)', background: 'rgba(94,106,210,0.1)', color: '#7170ff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 13, height: 32 }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(94,106,210,0.2)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(94,106,210,0.1)'}
-                    >Contacter un avocat</button>
-                  )}
-                  <button className="nav-try-btn" onClick={() => setPage('chat')}
-                    style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-                  >Mon dossier</button>
-                </>
+              {user?.plan === 'pro_plus' ? (
+                <button className="nav-try-btn" onClick={() => setPage('chat')}
+                  style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                >Mon dossier</button>
+              ) : user?.plan === 'pro' ? (
+                <button className="nav-try-btn" onClick={() => { setPage('chat'); setTimeout(() => { window.dispatchEvent(new CustomEvent('avocai:open-demarche', { detail: { initialCategory: 'contacter_avocat' } })); }, 100); }}
+                  style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(113,112,255,0.4)', background: 'rgba(94,106,210,0.1)', color: '#7170ff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 13, height: 32 }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(94,106,210,0.2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(94,106,210,0.1)'}
+                >Contacter un avocat</button>
               ) : (
                 <button className="nav-try-btn" onClick={scrollToPricing}
                   style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
                   onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
                   onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-                >Passer à Pro</button>
+                >Passer à Premium</button>
               )}
             </>
           ) : (
