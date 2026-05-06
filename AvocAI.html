@@ -725,25 +725,84 @@
       );
     };
 
+    /* ── Landing: Reviews ───────────────────────────────── */
+
+    const Reviews = () => {
+      const reviews = [
+        { name: 'Marie L.', plan: 'Premium', stars: 5, text: 'J\'avais un litige avec mon propriétaire depuis 3 mois. AvocAI m\'a expliqué mes droits en 2 minutes et généré un courrier de mise en demeure. Problème réglé.' },
+        { name: 'Thomas B.', plan: 'Gratuit', stars: 5, text: 'Amende contestée avec succès grâce à AvocAI. L\'analyse était précise, les arguments solides. Je recommande vivement.' },
+        { name: 'Sophie M.', plan: 'Premium+', stars: 5, text: 'Licenciement abusif. L\'IA a identifié des irrégularités que mon employeur pensait passer inaperçues. Indemnités obtenues.' },
+        { name: 'Karim D.', plan: 'Premium', stars: 4, text: 'Très bon outil pour comprendre ses droits rapidement. Les démarches guidées sont claires et bien structurées.' },
+        { name: 'Claire R.', plan: 'Premium+', stars: 5, text: 'Conflit au travail complexe. AvocAI m\'a accompagnée étape par étape, de la médiation jusqu\'à la saisine des prud\'hommes.' },
+        { name: 'Nicolas F.', plan: 'Gratuit', stars: 5, text: 'Accident de la route, l\'assurance voulait minimiser mon indemnisation. AvocAI m\'a montré que j\'avais droit à bien plus.' },
+      ];
+      const Stars = ({ n }) => (
+        <div style={{ display: 'flex', gap: 2, marginBottom: 10 }}>
+          {[1,2,3,4,5].map(i => (
+            <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill={i <= n ? '#f59e0b' : 'none'} stroke={i <= n ? '#f59e0b' : '#4b5563'} strokeWidth="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          ))}
+        </div>
+      );
+      return (
+        <section style={{ background: 'var(--bg-subtle, #111)', padding: '64px 24px', borderTop: '1px solid var(--border-default)' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: 40 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', color: '#7170ff', textTransform: 'uppercase', marginBottom: 10 }}>Avis clients</p>
+              <h2 style={{ fontSize: 26, fontWeight: 500, color: 'var(--text-primary)', letterSpacing: '-0.4px', margin: 0 }}>
+                Ils ont défendu leurs droits avec AvocAI
+              </h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+              {reviews.map((r, i) => (
+                <div key={i} style={{
+                  background: 'var(--bg-card, #1a1a1a)', border: '1px solid var(--border-default)',
+                  borderRadius: 14, padding: '20px 22px',
+                }}>
+                  <Stars n={r.stars} />
+                  <p style={{ fontSize: 13.5, color: 'var(--text-body)', lineHeight: 1.6, margin: '0 0 14px', fontStyle: 'italic' }}>
+                    "{r.text}"
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #5e6ad2, #7170ff)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, fontWeight: 600, color: '#fff', flexShrink: 0,
+                    }}>{r.name[0]}</div>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{r.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Plan {r.plan}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    };
+
     /* ── Landing: UseCases ──────────────────────────────── */
 
     const UseCases = () => {
       const pills = ['Amende contestée', 'Litige locataire', 'Conflit au travail', 'Accident de la route', 'Problème de voisinage', 'Garde à vue', 'Contrat litigieux', 'Impayés', 'Licenciement abusif', 'Discrimination', 'Arnaque en ligne'];
       const [active, setActive] = useState(null);
       return (
-        <section style={{ background: 'var(--bg-page)', padding: '64px 24px' }}>
+        <section style={{ background: 'var(--bg-page)', padding: '40px 24px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
-            <h2 style={{ fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', letterSpacing: '-0.288px', marginBottom: 28, fontFeatureSettings: '"cv01","ss03"' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-muted)', letterSpacing: '-0.1px', marginBottom: 16, fontFeatureSettings: '"cv01","ss03"' }}>
               Situations courantes analysées par AvocAI
             </h2>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center' }}>
               {pills.map(p => (
                 <button key={p} onClick={() => setActive(p === active ? null : p)} style={{
-                  padding: '7px 16px', borderRadius: 9999,
+                  padding: '4px 11px', borderRadius: 9999,
                   border: `1px solid ${p === active ? '#5e6ad2' : 'var(--border-default)'}`,
                   background: p === active ? 'rgba(94,106,210,0.08)' : 'var(--btn-bg)',
-                  color: p === active ? '#7170ff' : 'var(--text-body)',
-                  cursor: 'pointer', fontSize: 13, fontWeight: 510,
+                  color: p === active ? '#7170ff' : 'var(--text-muted)',
+                  cursor: 'pointer', fontSize: 11, fontWeight: 500,
                   fontFeatureSettings: '"cv01","ss03"', transition: 'all 0.15s ease',
                 }}>{p}</button>
               ))}
@@ -823,6 +882,7 @@
         <Hero setPage={setPage} onHeroSend={onHeroSend} />
         <HowItWorks />
         <Pricing setPage={setPage} />
+        <Reviews />
         <UseCases />
         <FAQ />
         <Footer />
