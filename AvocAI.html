@@ -335,18 +335,22 @@
                 background: 'var(--btn-bg)', cursor: 'pointer',
                 fontSize: 14, fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', color: 'var(--text-body)',
               }}>Se déconnecter</button>
-              {user?.plan === 'pro_plus' ? (
-                <button className="nav-try-btn" onClick={() => setPage('chat')}
-                  style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
-                >Mon dossier</button>
-              ) : user?.plan === 'pro' ? (
-                <button className="nav-try-btn" onClick={() => { setPage('chat'); setTimeout(() => { window.dispatchEvent(new CustomEvent('avocai:open-demarche', { detail: { initialCategory: 'contacter_avocat' } })); }, 100); }}
-                  style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(113,112,255,0.4)', background: 'rgba(94,106,210,0.1)', color: '#7170ff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 13, height: 32 }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(94,106,210,0.2)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(94,106,210,0.1)'}
-                >Contacter un avocat</button>
+              {(user?.plan === 'pro' || user?.plan === 'pro_plus') ? (
+                <>
+                  <button className="nav-try-btn"
+                    onClick={() => window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search'))}
+                    style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(113,112,255,0.4)', background: 'rgba(94,106,210,0.1)', color: '#7170ff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 13, height: 32 }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(94,106,210,0.2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(94,106,210,0.1)'}
+                  >Contacter un avocat</button>
+                  {user?.plan === 'pro_plus' && (
+                    <button className="nav-try-btn" onClick={() => setPage('chat')}
+                      style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#828fff'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#5e6ad2'}
+                    >Mon dossier</button>
+                  )}
+                </>
               ) : (
                 <button className="nav-try-btn" onClick={scrollToPricing}
                   style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#5e6ad2', color: '#fff', cursor: 'pointer', fontWeight: 510, fontFeatureSettings: '"cv01","ss03"', fontSize: 14, height: 32 }}
@@ -2594,6 +2598,165 @@
       );
     };
 
+    /* ── LawyerSearchModal ──────────────────────────────── */
+
+    const haversineKm = (lat1, lon1, lat2, lon2) => {
+      const R = 6371, toRad = x => x * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    };
+
+    const LawyerSearchModal = ({ onClose }) => {
+      const [status, setStatus]     = useState('idle'); // idle | locating | searching | results | error
+      const [lawyers, setLawyers]   = useState([]);
+      const [cityInput, setCityInput] = useState('');
+      const [coords, setCoords]     = useState(null);
+      const [errorMsg, setErrorMsg] = useState('');
+
+      const processResults = (elements, lat, lon) => {
+        const parsed = elements
+          .map(el => {
+            const t = el.tags || {};
+            const elLat = el.lat ?? el.center?.lat;
+            const elLon = el.lon ?? el.center?.lon;
+            return {
+              name:      t.name || t['name:fr'] || 'Cabinet d\'avocat',
+              address:   [t['addr:housenumber'], t['addr:street'], t['addr:postcode'], t['addr:city']].filter(Boolean).join(' '),
+              phone:     t.phone || t['contact:phone'] || null,
+              website:   t.website || t['contact:website'] || null,
+              specialty: t.description || t.speciality || t['legal:type'] || null,
+              dist:      (elLat && elLon) ? haversineKm(lat, lon, elLat, elLon) : null,
+            };
+          })
+          .filter(l => l.name !== 'Cabinet d\'avocat' || l.address)
+          .sort((a, b) => (a.dist ?? 99) - (b.dist ?? 99))
+          .slice(0, 15);
+        setLawyers(parsed);
+        setStatus(parsed.length ? 'results' : 'empty');
+      };
+
+      const searchByCoords = async (lat, lon) => {
+        setCoords({ lat, lon });
+        setStatus('searching');
+        try {
+          const q = `[out:json][timeout:25];(node["office"="lawyer"](around:20000,${lat},${lon});way["office"="lawyer"](around:20000,${lat},${lon});node["amenity"="lawyer"](around:20000,${lat},${lon}););out center 30;`;
+          const r = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+          const d = await r.json();
+          processResults(d.elements || [], lat, lon);
+        } catch { setErrorMsg('Erreur réseau. Réessayez.'); setStatus('error'); }
+      };
+
+      const geolocate = () => {
+        if (!navigator.geolocation) { setErrorMsg('Géolocalisation non supportée.'); setStatus('error'); return; }
+        setStatus('locating');
+        navigator.geolocation.getCurrentPosition(
+          pos => searchByCoords(pos.coords.latitude, pos.coords.longitude),
+          ()  => { setErrorMsg('Localisation refusée. Entrez votre ville manuellement.'); setStatus('idle'); }
+        );
+      };
+
+      const searchByCity = async () => {
+        if (!cityInput.trim()) return;
+        setStatus('locating');
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityInput.trim()+', France')}&format=json&limit=1`);
+          const d = await r.json();
+          if (!d.length) { setErrorMsg('Ville introuvable. Vérifiez l\'orthographe.'); setStatus('error'); return; }
+          searchByCoords(parseFloat(d[0].lat), parseFloat(d[0].lon));
+        } catch { setErrorMsg('Erreur réseau.'); setStatus('error'); }
+      };
+
+      const btnStyle = { padding:'11px 20px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer' };
+
+      return (
+        <div style={{ position:'fixed', inset:0, zIndex:900, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e => e.target===e.currentTarget && onClose()}>
+          <div style={{ background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:18, width:'100%', maxWidth:580, maxHeight:'88vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding:'20px 24px 16px', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+              <div>
+                <div style={{ fontSize:18, fontWeight:600, color:'var(--text-primary)' }}>👨‍⚖️ Trouver un avocat</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>Avocats à proximité de votre position</div>
+              </div>
+              <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-muted)', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+
+              {/* Idle — choix localisation */}
+              {(status==='idle' || status==='error') && (
+                <div style={{ textAlign:'center' }}>
+                  {status==='error' && <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'10px 14px', marginBottom:20, fontSize:13, color:'#f87171' }}>{errorMsg}</div>}
+                  <div style={{ fontSize:48, marginBottom:16 }}>📍</div>
+                  <p style={{ fontSize:15, color:'var(--text-body)', marginBottom:24, lineHeight:1.6 }}>
+                    Autorisez la géolocalisation ou entrez votre ville pour trouver les avocats proches de vous.
+                  </p>
+                  <button onClick={geolocate} style={{ ...btnStyle, width:'100%', marginBottom:14, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="9" opacity=".3"/></svg>
+                    Me localiser automatiquement
+                  </button>
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                    <input value={cityInput} onChange={e=>setCityInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&searchByCity()}
+                      placeholder="Entrez votre ville (ex : Lyon, Bordeaux…)"
+                      style={{ flex:1, padding:'10px 14px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-input,var(--bg-panel))', color:'var(--text-primary)', fontSize:14, outline:'none' }}/>
+                    <button onClick={searchByCity} style={{ ...btnStyle, padding:'10px 16px' }}>Chercher</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Locating / Searching */}
+              {(status==='locating'||status==='searching') && (
+                <div style={{ textAlign:'center', padding:'40px 0' }}>
+                  <div style={{ width:44, height:44, borderRadius:'50%', border:'3px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.9s linear infinite', margin:'0 auto 20px' }}/>
+                  <p style={{ fontSize:14, color:'var(--text-muted)' }}>{status==='locating'?'Récupération de votre position…':'Recherche des avocats à proximité…'}</p>
+                </div>
+              )}
+
+              {/* Empty */}
+              {status==='empty' && (
+                <div style={{ textAlign:'center', padding:'32px 0' }}>
+                  <div style={{ fontSize:48, marginBottom:12 }}>🔍</div>
+                  <p style={{ fontSize:15, color:'var(--text-muted)', marginBottom:20 }}>Aucun cabinet trouvé dans un rayon de 20 km.<br/>Essayez avec une autre ville.</p>
+                  <button onClick={()=>{setStatus('idle');setCityInput('');}} style={{ ...btnStyle, background:'transparent', border:'1px solid var(--border-default)', color:'var(--text-body)' }}>Nouvelle recherche</button>
+                </div>
+              )}
+
+              {/* Results */}
+              {status==='results' && (
+                <>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                    <span style={{ fontSize:13, color:'var(--text-muted)' }}>{lawyers.length} cabinet{lawyers.length>1?'s':''} trouvé{lawyers.length>1?'s':''}</span>
+                    <button onClick={()=>{setStatus('idle');setLawyers([]);}} style={{ fontSize:12, color:'#7170ff', background:'none', border:'none', cursor:'pointer' }}>Modifier la recherche</button>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    {lawyers.map((l,i) => (
+                      <div key={i} style={{ background:'var(--bg-card,var(--bg-subtle))', border:'1px solid var(--border-default)', borderRadius:12, padding:'16px 18px' }}>
+                        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:6 }}>
+                          <div style={{ fontSize:14, fontWeight:600, color:'var(--text-primary)' }}>{l.name}</div>
+                          {l.dist!=null && <span style={{ fontSize:11, fontWeight:600, color:'#7170ff', background:'rgba(113,112,255,0.1)', padding:'2px 8px', borderRadius:9999, flexShrink:0 }}>{l.dist<1?(l.dist*1000|0)+' m':(l.dist.toFixed(1))+' km'}</span>}
+                        </div>
+                        {l.address && <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:6, display:'flex', gap:4, alignItems:'flex-start' }}><span>📍</span>{l.address}</div>}
+                        {l.specialty && <div style={{ fontSize:12, color:'var(--text-body)', marginBottom:8, fontStyle:'italic' }}>{l.specialty}</div>}
+                        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                          {l.phone && <a href={`tel:${l.phone}`} style={{ fontSize:12, color:'#5e6ad2', textDecoration:'none', display:'flex', gap:4, alignItems:'center' }}>📞 {l.phone}</a>}
+                          {l.website && <a href={l.website} target="_blank" rel="noopener" style={{ fontSize:12, color:'#5e6ad2', textDecoration:'none', display:'flex', gap:4, alignItems:'center' }}>🌐 Site web</a>}
+                          {!l.phone && !l.website && <span style={{ fontSize:12, color:'var(--text-muted)' }}>Coordonnées non disponibles</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     /* ── App root ────────────────────────────────────────── */
 
     const App = () => {
@@ -2604,6 +2767,13 @@
       const [heroMessage, setHeroMessage] = useState(null);
       const [scrollTarget, setScrollTarget] = useState(null);
       const [appUser, setAppUser] = useState(getStoredUser);
+      const [showLawyerModal, setShowLawyerModal] = useState(false);
+
+      useEffect(() => {
+        const handler = () => setShowLawyerModal(true);
+        window.addEventListener('avocai:open-lawyer-search', handler);
+        return () => window.removeEventListener('avocai:open-lawyer-search', handler);
+      }, []);
 
       // Rafraîchit le plan depuis /api/me à chaque chargement (ex: retour après paiement Stripe)
       useEffect(() => {
@@ -2644,6 +2814,7 @@
           {page === 'landing'
             ? <LandingPage setPage={setPage} onHeroSend={handleHeroSend} />
             : <ChatInterface setPage={setPage} heroMessage={heroMessage} onHeroMessageConsumed={() => setHeroMessage(null)} onUserUpdate={setAppUser} />}
+          {showLawyerModal && <LawyerSearchModal onClose={() => setShowLawyerModal(false)} />}
         </div>
       );
     };
