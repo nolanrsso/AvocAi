@@ -2705,7 +2705,8 @@
       const [status,  setStatus]  = useState('loading');
       const [lawyers, setLawyers] = useState([]);
       const [expanded, setExpanded] = useState(null);
-      const [sent, setSent] = useState(null); // index of lawyer contacted
+      const [sent, setSent]           = useState(null);      // index confirmé
+      const [confirming, setConfirming] = useState(null);   // index en attente de confirm
 
       const specialty = CAT_SPECIALTY[formData?.category] || 'Droit général';
 
@@ -2816,7 +2817,8 @@
                   {lawyers.map((l, i) => {
                     const score = hashScore(l.name + (formData?.category||''));
                     const isOpen = expanded===i;
-                    const isSent = sent===i;
+                    const isSent      = sent===i;
+                    const isConfirming = confirming===i;
                     return (
                       <div key={i} style={{background:'var(--bg-card,var(--bg-subtle))', border:'1px solid var(--border-default)', borderRadius:14, overflow:'hidden'}}>
                         {/* Card top */}
@@ -2847,9 +2849,9 @@
                                 ✓ Dossier transmis
                               </button>
                             ) : (
-                              <button onClick={()=>setSent(i)} style={{padding:'7px 14px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}
-                                onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
-                                onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
+                              <button onClick={()=>setConfirming(isConfirming?null:i)} style={{padding:'7px 14px', borderRadius:8, border:'none', background: isConfirming?'#828fff':'#5e6ad2', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}
+                                onMouseEnter={e=>{ if(!isConfirming) e.currentTarget.style.background='#828fff'; }}
+                                onMouseLeave={e=>{ if(!isConfirming) e.currentTarget.style.background='#5e6ad2'; }}>
                                 📨 Contacter avec mon dossier
                               </button>
                             )}
@@ -2867,10 +2869,34 @@
                           </div>
                         )}
 
-                        {/* Sent confirmation */}
+                        {/* Confirmation inline */}
+                        {isConfirming && !isSent && (
+                          <div style={{borderTop:'1px solid rgba(94,106,210,0.3)', padding:'14px 18px', background:'rgba(94,106,210,0.06)'}}>
+                            <div style={{fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:6}}>Êtes-vous sûr de vouloir contacter cet avocat avec votre dossier ?</div>
+                            <div style={{fontSize:12, color:'var(--text-muted)', marginBottom:14, lineHeight:1.6}}>
+                              La réponse sera envoyée à l'adresse :<br/>
+                              <strong style={{color:'#7170ff'}}>{formData?.email || 'adresse non renseignée'}</strong>
+                            </div>
+                            <div style={{display:'flex', gap:8}}>
+                              <button onClick={()=>{ setSent(i); setConfirming(null); }} style={{padding:'8px 16px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}
+                                onMouseEnter={e=>e.currentTarget.style.background='#828fff'}
+                                onMouseLeave={e=>e.currentTarget.style.background='#5e6ad2'}>
+                                Confirmer
+                              </button>
+                              <button onClick={()=>setConfirming(null)} style={{padding:'8px 14px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:13, cursor:'pointer'}}>
+                                Annuler
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {/* Sent success */}
                         {isSent && (
-                          <div style={{borderTop:'1px solid rgba(34,197,94,0.2)', padding:'12px 18px', background:'rgba(34,197,94,0.05)'}}>
-                            <div style={{fontSize:13, color:'#22c55e', fontWeight:500}}>✓ Votre dossier a été transmis à <strong>{l.name}</strong> via AvocAI. L'avocat vous contactera dans les 48h.</div>
+                          <div style={{borderTop:'1px solid rgba(34,197,94,0.2)', padding:'14px 18px', background:'rgba(34,197,94,0.05)'}}>
+                            <div style={{fontSize:13, color:'#22c55e', fontWeight:600, marginBottom:4}}>✓ C'est transmis !</div>
+                            <div style={{fontSize:13, color:'var(--text-body)', lineHeight:1.6}}>
+                              <strong>{l.name}</strong> vous répondra au plus vite par mail à l'adresse suivante :<br/>
+                              <strong style={{color:'#22c55e'}}>{formData?.email || 'adresse non renseignée'}</strong>
+                            </div>
                           </div>
                         )}
                       </div>
