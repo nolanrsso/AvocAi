@@ -1727,11 +1727,11 @@
                     </div>
                   </div>
                   {/* Swipe reveal — champ localisation */}
-                  <div style={{maxHeight: data.wantsLawyer ? '120px' : '0', overflow:'hidden', transition:'max-height 0.35s cubic-bezier(0.4,0,0.2,1)'}}>
+                  <div style={{maxHeight: data.wantsLawyer ? '260px' : '0', overflow: data.wantsLawyer ? 'visible' : 'hidden', transition:'max-height 0.35s cubic-bezier(0.4,0,0.2,1)'}}>
                     <div style={{padding:'0 16px 16px', borderTop:`1px solid rgba(94,106,210,0.2)`, paddingTop:14}} onClick={e=>e.stopPropagation()}>
                       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
                         <label style={{fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em'}}>
-                          📍 Votre ville ou adresse <span style={{color:'#7170ff'}}>*</span>
+                          📍 Votre commune <span style={{color:'#7170ff'}}>*</span>
                         </label>
                         <button type="button" onClick={e=>{ e.stopPropagation(); if(!navigator.geolocation){return;} upd('lawyerCity','Localisation en cours…'); navigator.geolocation.getCurrentPosition(async pos=>{ try{ const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`); const d=await r.json(); upd('lawyerCity', d.address?.city||d.address?.town||d.address?.village||d.address?.county||''); }catch{ upd('lawyerCity',''); } }, ()=>upd('lawyerCity','')); }}
                           style={{display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:6, border:'1px solid rgba(113,112,255,0.35)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:11, fontWeight:600, cursor:'pointer', transition:'background 0.15s'}}
@@ -1741,13 +1741,10 @@
                           Me localiser
                         </button>
                       </div>
-                      <input
+                      <CommuneAutocomplete
                         value={data.lawyerCity||''}
-                        onChange={e=>upd('lawyerCity', e.target.value)}
-                        placeholder="Ex : Lyon, 75011 Paris, Bordeaux…"
-                        style={{width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-input,var(--bg-panel))', color:'var(--text-primary)', fontSize:14, outline:'none', boxSizing:'border-box'}}
-                        onFocus={e=>e.target.style.borderColor='#5e6ad2'}
-                        onBlur={e=>e.target.style.borderColor='var(--border-default)'}
+                        onChange={v=>upd('lawyerCity', v)}
+                        placeholder="Ex : Lyon, Bordeaux, Marseille…"
                       />
                     </div>
                   </div>
@@ -2734,6 +2731,82 @@
       );
     };
 
+    /* ── CommuneAutocomplete ───────────────────────────── */
+
+    const CommuneAutocomplete = ({ value, onChange, placeholder, inputStyle }) => {
+      const [suggestions, setSuggestions] = useState([]);
+      const [open, setOpen]               = useState(false);
+      const [query, setQuery]             = useState(value || '');
+      const debounceRef   = useRef(null);
+      const containerRef  = useRef(null);
+
+      // Sync external value (e.g. "Me localiser" reverse-geocode)
+      useEffect(() => { setQuery(value || ''); }, [value]);
+
+      const fetchSuggestions = q => {
+        clearTimeout(debounceRef.current);
+        if (q.length < 2) { setSuggestions([]); setOpen(false); return; }
+        debounceRef.current = setTimeout(async () => {
+          try {
+            const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&boost=population&limit=8&fields=nom,codesPostaux,departement`);
+            const d = await r.json();
+            setSuggestions(Array.isArray(d) ? d : []);
+            setOpen(Array.isArray(d) && d.length > 0);
+          } catch { setSuggestions([]); }
+        }, 200);
+      };
+
+      const handleInput = e => {
+        const v = e.target.value;
+        setQuery(v);
+        onChange(v);
+        fetchSuggestions(v);
+      };
+
+      const select = c => {
+        const label = c.nom + (c.codesPostaux?.[0] ? ' (' + c.codesPostaux[0] + ')' : '') + (c.departement?.nom ? ', ' + c.departement.nom : '');
+        setQuery(label);
+        onChange(label);
+        setSuggestions([]);
+        setOpen(false);
+      };
+
+      useEffect(() => {
+        const handler = e => { if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+      }, []);
+
+      return (
+        <div ref={containerRef} style={{ position:'relative', width:'100%' }}>
+          <input
+            value={query}
+            onChange={handleInput}
+            onFocus={e => { e.target.style.borderColor='#5e6ad2'; if (suggestions.length) setOpen(true); }}
+            onBlur={e => e.target.style.borderColor='var(--border-default)'}
+            placeholder={placeholder || 'Rechercher une commune…'}
+            autoComplete="off"
+            style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-input,var(--bg-panel))', color:'var(--text-primary)', fontSize:14, outline:'none', boxSizing:'border-box', ...(inputStyle||{}) }}
+          />
+          {open && suggestions.length > 0 && (
+            <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:1200, marginTop:4, background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:8, overflow:'hidden', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+              {suggestions.map((c, i) => (
+                <div key={i}
+                  onMouseDown={e => { e.preventDefault(); select(c); }}
+                  style={{ padding:'10px 14px', cursor:'pointer', borderBottom: i<suggestions.length-1?'1px solid var(--border-subtle)':'none', fontSize:13, color:'var(--text-primary)', display:'flex', alignItems:'center', justifyContent:'space-between', transition:'background 0.1s' }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(94,106,210,0.12)'}
+                  onMouseLeave={e => e.currentTarget.style.background='transparent'}
+                >
+                  <span style={{ fontWeight:500 }}>{c.nom}</span>
+                  <span style={{ fontSize:11, color:'var(--text-muted)' }}>{c.codesPostaux?.[0]}{c.departement?.nom ? ' · ' + c.departement.nom : ''}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    };
+
     /* ── LawyerMatchModal ───────────────────────────────── */
 
     const CAT_SPECIALTY = {
@@ -3111,6 +3184,132 @@
       );
     };
 
+    /* ── DossierPickerModal ─────────────────────────────── */
+
+    const inferCategory = title => {
+      const t = (title || '').toLowerCase();
+      if (/travail|emploi|licenci|salaire|contrat de travail|employeur/.test(t)) return 'travail';
+      if (/loyer|locatif|bail|logement|propri|locataire|expulsion/.test(t)) return 'locatif';
+      if (/routier|accident|permis|contravent|véhicule|vehicule/.test(t)) return 'routier';
+      if (/famille|divorce|succession|enfant|garde|héritage|mariage|séparation/.test(t)) return 'famille';
+      if (/consomm|achat|remboursement|garantie|vendeur/.test(t)) return 'consommation';
+      if (/pénal|penal|plainte|infraction|fraude|vol|agress/.test(t)) return 'penal';
+      if (/sant|médical|medical|hôpital|hospital/.test(t)) return 'sante';
+      if (/admin|préfecture|prefecture|administration|visa|mairie/.test(t)) return 'administratif';
+      if (/affaires|société|contrat|commerce|entreprise/.test(t)) return 'affaires';
+      return 'contacter_avocat';
+    };
+
+    const DossierPickerModal = ({ onClose, user }) => {
+      const [view, setView]         = useState('pick'); // 'pick' | 'match'
+      const [convos, setConvos]     = useState([]);
+      const [loadingC, setLoadingC] = useState(true);
+      const [selected, setSelected] = useState(null);
+      const [city, setCity]         = useState('');
+      const [cityErr, setCityErr]   = useState(false);
+
+      useEffect(() => {
+        fetch('/api/conversations', { headers: authHeaders() })
+          .then(r => r.ok ? r.json() : { conversations: [] })
+          .then(d => { setConvos(d.conversations || []); setLoadingC(false); })
+          .catch(() => setLoadingC(false));
+      }, []);
+
+      if (view === 'match') {
+        const cat = selected ? inferCategory(selected.title) : 'contacter_avocat';
+        return (
+          <LawyerMatchModal
+            formData={{ category: cat, lawyerCity: city, email: user?.email || '' }}
+            onClose={onClose}
+          />
+        );
+      }
+
+      const handleSearch = () => {
+        if (!city.trim()) { setCityErr(true); return; }
+        setView('match');
+      };
+
+      return (
+        <div style={{ position:'fixed', inset:0, zIndex:900, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e => e.target===e.currentTarget && onClose()}>
+          <div style={{ background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:18, width:'100%', maxWidth:560, maxHeight:'88vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding:'20px 24px 16px', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+              <div>
+                <div style={{ fontSize:18, fontWeight:600, color:'var(--text-primary)' }}>👨‍⚖️ Contacter un avocat</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>Sélectionnez votre commune et un dossier (optionnel)</div>
+              </div>
+              <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-muted)', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', display:'flex', flexDirection:'column', gap:20 }}>
+
+              {/* Commune autocomplete */}
+              <div>
+                <label style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em', display:'block', marginBottom:6 }}>
+                  📍 Votre commune <span style={{ color:'#7170ff' }}>*</span>
+                </label>
+                <CommuneAutocomplete value={city} onChange={v => { setCity(v); setCityErr(false); }} placeholder="Ex : Lyon, Bordeaux, Marseille…" />
+                {cityErr && <div style={{ fontSize:11, color:'#ef4444', marginTop:4 }}>Veuillez entrer votre commune.</div>}
+              </div>
+
+              {/* Dossier list */}
+              <div>
+                <label style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.03em', display:'block', marginBottom:10 }}>
+                  📂 Choisir un dossier <span style={{ fontSize:11, fontWeight:400, color:'var(--text-subtle)' }}>(optionnel — affine la recherche)</span>
+                </label>
+                {loadingC ? (
+                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 0', color:'var(--text-muted)', fontSize:13 }}>
+                    <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.9s linear infinite', flexShrink:0 }}/>
+                    Chargement des dossiers…
+                  </div>
+                ) : convos.length === 0 ? (
+                  <div style={{ fontSize:13, color:'var(--text-muted)', padding:'8px 0', fontStyle:'italic' }}>
+                    Aucun dossier trouvé — vous pouvez tout de même rechercher un avocat.
+                  </div>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {convos.map(c => {
+                      const isSel = selected?.id === c.id;
+                      return (
+                        <div key={c.id}
+                          onClick={() => setSelected(isSel ? null : c)}
+                          style={{ padding:'12px 14px', borderRadius:10, border:`1.5px solid ${isSel?'#5e6ad2':'var(--border-default)'}`, background: isSel?'rgba(94,106,210,0.08)':'transparent', cursor:'pointer', transition:'all 0.15s', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}
+                          onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor='rgba(94,106,210,0.4)'; }}
+                          onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor='var(--border-default)'; }}
+                        >
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:2 }}>{c.title || 'Dossier sans titre'}</div>
+                            <div style={{ fontSize:11, color:'var(--text-muted)' }}>{c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR') : ''}</div>
+                          </div>
+                          {isSel && <div style={{ width:18, height:18, borderRadius:'50%', background:'#5e6ad2', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding:'14px 24px', borderTop:'1px solid var(--border-subtle)', flexShrink:0 }}>
+              <button onClick={handleSearch}
+                style={{ width:'100%', padding:'12px', borderRadius:8, border:'none', background: city.trim()?'#5e6ad2':'var(--bg-surface-elevated)', color: city.trim()?'#fff':'var(--text-subtle)', fontSize:14, fontWeight:600, cursor: city.trim()?'pointer':'default', transition:'all 0.15s' }}
+                onMouseEnter={e => { if (city.trim()) e.currentTarget.style.background='#828fff'; }}
+                onMouseLeave={e => { if (city.trim()) e.currentTarget.style.background='#5e6ad2'; }}>
+                {selected
+                  ? `🔍 Avocats pour "${(selected.title||'').slice(0,32)+'…'}"`
+                  : '🔍 Trouver un avocat près de moi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     /* ── App root ────────────────────────────────────────── */
 
     const App = () => {
@@ -3168,7 +3367,7 @@
           {page === 'landing'
             ? <LandingPage setPage={setPage} onHeroSend={handleHeroSend} />
             : <ChatInterface setPage={setPage} heroMessage={heroMessage} onHeroMessageConsumed={() => setHeroMessage(null)} onUserUpdate={setAppUser} />}
-          {showLawyerModal && <LawyerSearchModal onClose={() => setShowLawyerModal(false)} />}
+          {showLawyerModal && <DossierPickerModal onClose={() => setShowLawyerModal(false)} user={appUser} />}
         </div>
       );
     };
