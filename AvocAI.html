@@ -301,16 +301,18 @@
         return () => document.removeEventListener('mousedown', handler);
       }, []);
 
-      // Premium simple → contact avocat + support uniquement
-      // Premium+        → tout (dossiers, contact avocat, alertes, support)
+      // Premium simple → contact avocat + support + compte
+      // Premium+        → tout (dossiers, contact avocat, alertes, support, compte)
       const items = isPlus ? [
         { icon: '📁', label: 'Mes dossiers', sub: 'Consulter et modifier', action: () => window.dispatchEvent(new CustomEvent('avocai:open-dossiers')) },
         { icon: '👨‍⚖️', label: 'Contacter un avocat', sub: 'Avocats près de chez vous', action: () => window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search')) },
         { icon: '🔔', label: 'Alertes délais légaux', sub: 'Par téléphone', action: () => window.dispatchEvent(new CustomEvent('avocai:open-alerts')) },
         { icon: '💬', label: 'Support', sub: '24h prioritaire', action: () => window.dispatchEvent(new CustomEvent('avocai:open-support')) },
+        { icon: '👤', label: 'Mon compte', sub: 'Profil et vérification email', action: () => window.dispatchEvent(new CustomEvent('avocai:open-account')) },
       ] : [
         { icon: '👨‍⚖️', label: 'Contacter un avocat', sub: 'Avocats par domaine, près de chez vous', action: () => window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search')) },
         { icon: '💬', label: 'Support', sub: '24h', action: () => window.dispatchEvent(new CustomEvent('avocai:open-support')) },
+        { icon: '👤', label: 'Mon compte', sub: 'Profil et vérification email', action: () => window.dispatchEvent(new CustomEvent('avocai:open-account')) },
       ];
 
       return (
@@ -4240,6 +4242,266 @@ body { font-family: 'Times New Roman', Georgia, serif; color:#111827; background
       );
     };
 
+    /* ── AccountModal ───────────────────────────────────── */
+
+    const AccountModal = ({ onClose, onUserUpdate }) => {
+      const [user, setUser]       = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [saving, setSaving]   = useState(false);
+      const [savedFlash, setSavedFlash] = useState(false);
+      const [errMsg, setErrMsg]   = useState('');
+
+      // Champs édités
+      const [firstName, setFirstName] = useState('');
+      const [lastName, setLastName]   = useState('');
+      const [birthDate, setBirthDate] = useState('');
+      const [phone, setPhone]         = useState('');
+
+      // Vérif email
+      const [verifyStep, setVerifyStep]   = useState('idle'); // idle | code | done
+      const [verifyCode, setVerifyCode]   = useState('');
+      const [verifyError, setVerifyError] = useState('');
+      const [devCode, setDevCode]         = useState(null); // affiché en dev
+
+      useEffect(() => {
+        fetch('/api/auth/me', { headers: authHeaders() })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (d?.user) {
+              setUser(d.user);
+              setFirstName(d.user.firstName || '');
+              setLastName(d.user.lastName || '');
+              setBirthDate(d.user.birthDate || '');
+              setPhone(d.user.phone || '');
+            }
+            setLoading(false);
+          })
+          .catch(() => setLoading(false));
+      }, []);
+
+      const fmtDate = raw => {
+        const digits = String(raw||'').replace(/\D/g, '').slice(0, 8);
+        if (digits.length >= 5) return digits.slice(0,2)+'/'+digits.slice(2,4)+'/'+digits.slice(4);
+        if (digits.length >= 3) return digits.slice(0,2)+'/'+digits.slice(2);
+        return digits;
+      };
+
+      const save = async () => {
+        if (!firstName.trim() || !lastName.trim() || saving) return;
+        setSaving(true); setErrMsg('');
+        try {
+          const r = await fetch('/api/auth/me', {
+            method: 'PUT',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ firstName, lastName, birthDate, phone }),
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Erreur');
+          setUser(u => ({ ...u, firstName, lastName, birthDate, phone }));
+          // Maj user global + localStorage
+          const stored = getStoredUser() || {};
+          const updated = { ...stored, firstName, lastName, birthDate };
+          localStorage.setItem('avocai_user', JSON.stringify(updated));
+          onUserUpdate?.(updated);
+          setSavedFlash(true);
+          setTimeout(() => setSavedFlash(false), 2200);
+        } catch (e) { setErrMsg(e.message || 'Erreur lors de la sauvegarde.'); }
+        setSaving(false);
+      };
+
+      const requestCode = async () => {
+        setVerifyError(''); setDevCode(null);
+        try {
+          const r = await fetch('/api/auth/email/verify-request', { method: 'POST', headers: authHeaders() });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Erreur');
+          setVerifyStep('code');
+          if (d.devCode) setDevCode(d.devCode); // affiché uniquement en dev (pas de SMTP)
+        } catch (e) { setVerifyError(e.message); }
+      };
+
+      const confirmCode = async () => {
+        if (!verifyCode.trim()) return;
+        setVerifyError('');
+        try {
+          const r = await fetch('/api/auth/email/verify-confirm', {
+            method: 'POST', headers: { ...authHeaders(), 'Content-Type':'application/json' },
+            body: JSON.stringify({ code: verifyCode.trim() }),
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Erreur');
+          setVerifyStep('done');
+          setUser(u => ({ ...u, emailVerified: true }));
+        } catch (e) { setVerifyError(e.message); }
+      };
+
+      const planLabel = user?.plan === 'pro_plus' ? 'Premium+' : user?.plan === 'pro' ? 'Premium' : user?.plan === 'admin' ? 'Admin' : 'Gratuit';
+      const planColor = user?.plan === 'pro_plus' ? '#a78bfa' : user?.plan === 'pro' ? '#7170ff' : '#6b7280';
+      const initials  = ((firstName||'?')[0] + (lastName||'?')[0]).toUpperCase();
+      const memberSince = user?.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' }) : '';
+
+      return (
+        <div style={{ position:'fixed', inset:0, zIndex:950, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'24px 16px', overflowY:'auto' }}
+          onClick={e => e.target===e.currentTarget && onClose()}>
+          <div style={{ background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:18, width:'100%', maxWidth:560, boxShadow:'0 20px 60px rgba(0,0,0,0.4)', marginBottom:32 }}>
+
+            {/* Header */}
+            <div style={{ padding:'18px 22px', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div style={{ fontSize:16, fontWeight:600, color:'var(--text-primary)' }}>👤 Mon compte</div>
+              <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-muted)', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
+            </div>
+
+            {loading ? (
+              <div style={{ padding:'60px 0', textAlign:'center' }}>
+                <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.9s linear infinite', margin:'0 auto' }}/>
+              </div>
+            ) : !user ? (
+              <div style={{ padding:'40px 24px', textAlign:'center', color:'var(--text-muted)' }}>Erreur de chargement.</div>
+            ) : (
+              <>
+                {/* Profil header */}
+                <div style={{ padding:'24px 22px', display:'flex', alignItems:'center', gap:16, borderBottom:'1px solid var(--border-subtle)' }}>
+                  <div style={{ width:60, height:60, borderRadius:'50%', background:'linear-gradient(135deg,#5e6ad2,#a78bfa)', color:'#fff', fontSize:22, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, letterSpacing:'-0.5px' }}>{initials}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:16, fontWeight:600, color:'var(--text-primary)', marginBottom:2 }}>{firstName} {lastName}</div>
+                    <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.email}</div>
+                    <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                      <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:9999, background: `${planColor}22`, color: planColor, border:`1px solid ${planColor}55`, letterSpacing:'0.04em' }}>{planLabel}</span>
+                      {user.emailVerified
+                        ? <span style={{ fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:9999, background:'rgba(34,197,94,0.12)', color:'#22c55e', border:'1px solid rgba(34,197,94,0.3)' }}>✓ Email vérifié</span>
+                        : <span style={{ fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:9999, background:'rgba(245,158,11,0.12)', color:'#f59e0b', border:'1px solid rgba(245,158,11,0.3)' }}>⚠ Email non vérifié</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vérification email */}
+                {!user.emailVerified && (
+                  <div style={{ padding:'18px 22px', background:'rgba(245,158,11,0.05)', borderBottom:'1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:4, display:'flex', alignItems:'center', gap:6 }}>
+                      <span>⚠</span> Vérifiez votre adresse email
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--text-muted)', lineHeight:1.6, marginBottom:12 }}>
+                      La vérification de votre adresse <strong style={{ color:'var(--text-body)' }}>{user.email}</strong> sécurise votre compte et permet de recevoir vos dossiers et alertes par email.
+                    </div>
+
+                    {verifyStep === 'idle' && (
+                      <>
+                        <button onClick={requestCode}
+                          style={{ padding:'9px 16px', borderRadius:8, border:'none', background:'#f59e0b', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6 }}
+                          onMouseEnter={e=>e.currentTarget.style.background='#fbbf24'}
+                          onMouseLeave={e=>e.currentTarget.style.background='#f59e0b'}>
+                          ✉️ Recevoir un code de vérification
+                        </button>
+                        {verifyError && <div style={{ fontSize:11, color:'#ef4444', marginTop:8 }}>{verifyError}</div>}
+                      </>
+                    )}
+
+                    {verifyStep === 'code' && (
+                      <>
+                        <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:6 }}>Saisissez le code à 6 chiffres reçu par email :</div>
+                        {devCode && (
+                          <div style={{ fontSize:11, color:'#7170ff', background:'rgba(94,106,210,0.08)', border:'1px dashed rgba(113,112,255,0.4)', padding:'6px 10px', borderRadius:6, marginBottom:8, fontFamily:'monospace' }}>
+                            🛠 Mode dev (SMTP non configuré) — Code : <strong style={{ fontSize:13 }}>{devCode}</strong>
+                          </div>
+                        )}
+                        <div style={{ display:'flex', gap:8 }}>
+                          <input value={verifyCode} onChange={e=>setVerifyCode(e.target.value.replace(/\D/g,'').slice(0,6))}
+                            onKeyDown={e=>e.key==='Enter'&&confirmCode()}
+                            placeholder="123456"
+                            style={{ flex:1, padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:15, outline:'none', letterSpacing:'0.3em', textAlign:'center', fontFamily:'monospace' }}
+                            onFocus={e=>e.target.style.borderColor='#f59e0b'} onBlur={e=>e.target.style.borderColor='var(--border-default)'}/>
+                          <button onClick={confirmCode} disabled={verifyCode.length!==6}
+                            style={{ padding:'9px 16px', borderRadius:8, border:'none', background: verifyCode.length===6?'#f59e0b':'var(--border-default)', color: verifyCode.length===6?'#fff':'var(--text-subtle)', fontSize:13, fontWeight:600, cursor: verifyCode.length===6?'pointer':'not-allowed' }}>
+                            Vérifier
+                          </button>
+                        </div>
+                        {verifyError && <div style={{ fontSize:11, color:'#ef4444', marginTop:8 }}>{verifyError}</div>}
+                        <button onClick={requestCode} style={{ background:'none', border:'none', color:'#7170ff', fontSize:11, cursor:'pointer', padding:'8px 0 0', textDecoration:'underline' }}>Renvoyer le code</button>
+                      </>
+                    )}
+
+                    {verifyStep === 'done' && (
+                      <div style={{ padding:'10px 12px', background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.25)', borderRadius:8, color:'#22c55e', fontSize:13, fontWeight:600 }}>✓ Email vérifié avec succès</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Profil — édition */}
+                <div style={{ padding:'18px 22px', borderBottom:'1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text-subtle)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:14 }}>Informations personnelles</div>
+                  <div style={{ display:'flex', gap:10, marginBottom:12 }}>
+                    <div style={{ flex:1 }}>
+                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', display:'block', marginBottom:4 }}>Prénom *</label>
+                      <input value={firstName} onChange={e=>setFirstName(e.target.value)}
+                        style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:13, outline:'none', boxSizing:'border-box' }}
+                        onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'}/>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', display:'block', marginBottom:4 }}>Nom *</label>
+                      <input value={lastName} onChange={e=>setLastName(e.target.value)}
+                        style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:13, outline:'none', boxSizing:'border-box' }}
+                        onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'}/>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:10, marginBottom:12 }}>
+                    <div style={{ flex:1 }}>
+                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', display:'block', marginBottom:4 }}>Date de naissance</label>
+                      <input value={birthDate} onChange={e=>setBirthDate(fmtDate(e.target.value))}
+                        placeholder="JJ/MM/AAAA" inputMode="numeric"
+                        style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:13, outline:'none', boxSizing:'border-box' }}
+                        onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'}/>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', display:'block', marginBottom:4 }}>Téléphone</label>
+                      <input value={phone} onChange={e=>setPhone(e.target.value)}
+                        placeholder="06 12 34 56 78"
+                        style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:13, outline:'none', boxSizing:'border-box' }}
+                        onFocus={e=>e.target.style.borderColor='#5e6ad2'} onBlur={e=>e.target.style.borderColor='var(--border-default)'}/>
+                    </div>
+                  </div>
+                  {errMsg && <div style={{ fontSize:11, color:'#ef4444', marginBottom:10 }}>{errMsg}</div>}
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <button onClick={save} disabled={saving || !firstName.trim() || !lastName.trim()}
+                      style={{ padding:'9px 18px', borderRadius:8, border:'none', background: saving?'var(--border-default)':'#5e6ad2', color: saving?'var(--text-subtle)':'#fff', fontSize:13, fontWeight:600, cursor: saving?'wait':'pointer' }}
+                      onMouseEnter={e => { if(!saving) e.currentTarget.style.background='#828fff'; }}
+                      onMouseLeave={e => { if(!saving) e.currentTarget.style.background='#5e6ad2'; }}>
+                      {saving ? 'Sauvegarde…' : 'Enregistrer'}
+                    </button>
+                    {savedFlash && <span style={{ fontSize:12, color:'#22c55e', fontWeight:600 }}>✓ Modifications enregistrées</span>}
+                  </div>
+                </div>
+
+                {/* Compte */}
+                <div style={{ padding:'18px 22px' }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text-subtle)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12 }}>Compte</div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', fontSize:12 }}>
+                    <span style={{ color:'var(--text-muted)' }}>Plan</span>
+                    <span style={{ fontWeight:600, color:'var(--text-primary)' }}>{planLabel}</span>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', fontSize:12 }}>
+                    <span style={{ color:'var(--text-muted)' }}>Email</span>
+                    <span style={{ fontWeight:600, color:'var(--text-primary)' }}>{user.email}</span>
+                  </div>
+                  {memberSince && (
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', fontSize:12 }}>
+                      <span style={{ color:'var(--text-muted)' }}>Membre depuis</span>
+                      <span style={{ fontWeight:600, color:'var(--text-primary)' }}>{memberSince}</span>
+                    </div>
+                  )}
+                  <button onClick={() => { logout(); }}
+                    style={{ marginTop:14, padding:'9px 16px', borderRadius:8, border:'1px solid rgba(239,68,68,0.3)', background:'transparent', color:'#ef4444', fontSize:12, fontWeight:600, cursor:'pointer' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.08)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    Se déconnecter
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    };
+
     /* ── App root ────────────────────────────────────────── */
 
     const App = () => {
@@ -4254,21 +4516,25 @@ body { font-family: 'Times New Roman', Georgia, serif; color:#111827; background
       const [showDossierModal, setShowDossierModal] = useState(false);
       const [showAlertsModal, setShowAlertsModal] = useState(false);
       const [showSupportModal, setShowSupportModal] = useState(false);
+      const [showAccountModal, setShowAccountModal] = useState(false);
 
       useEffect(() => {
         const onLawyer  = () => setShowLawyerModal(true);
         const onDossier = () => setShowDossierModal(true);
         const onAlerts  = () => setShowAlertsModal(true);
         const onSupport = () => setShowSupportModal(true);
+        const onAccount = () => setShowAccountModal(true);
         window.addEventListener('avocai:open-lawyer-search', onLawyer);
         window.addEventListener('avocai:open-dossiers', onDossier);
         window.addEventListener('avocai:open-alerts', onAlerts);
         window.addEventListener('avocai:open-support', onSupport);
+        window.addEventListener('avocai:open-account', onAccount);
         return () => {
           window.removeEventListener('avocai:open-lawyer-search', onLawyer);
           window.removeEventListener('avocai:open-dossiers', onDossier);
           window.removeEventListener('avocai:open-alerts', onAlerts);
           window.removeEventListener('avocai:open-support', onSupport);
+          window.removeEventListener('avocai:open-account', onAccount);
         };
       }, []);
 
@@ -4315,6 +4581,7 @@ body { font-family: 'Times New Roman', Georgia, serif; color:#111827; background
           {showDossierModal && <DossierListModal onClose={() => setShowDossierModal(false)} userPlan={appUser?.plan} />}
           {showAlertsModal && <AlertsModal onClose={() => setShowAlertsModal(false)} userPlan={appUser?.plan} />}
           {showSupportModal && <SupportModal onClose={() => setShowSupportModal(false)} user={appUser} />}
+          {showAccountModal && <AccountModal onClose={() => setShowAccountModal(false)} onUserUpdate={setAppUser} />}
         </div>
       );
     };

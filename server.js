@@ -283,9 +283,52 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ── Auth: Me ────────────────────────────────────────────
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  const user = db.prepare('SELECT id, email, plan, first_name, last_name FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT id, email, plan, first_name, last_name, birth_date, phone, email_verified, created_at FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.status(404).json({ error: 'Utilisateur introuvable.' });
-  res.json({ user: { ...user, firstName: user.first_name, lastName: user.last_name } });
+  res.json({ user: {
+    id: user.id, email: user.email, plan: user.plan,
+    firstName: user.first_name, lastName: user.last_name,
+    birthDate: user.birth_date, phone: user.phone,
+    emailVerified: !!user.email_verified,
+    createdAt: user.created_at,
+  } });
+});
+
+// Mise à jour du profil
+app.put('/api/auth/me', requireAuth, (req, res) => {
+  const { firstName, lastName, birthDate, phone } = req.body || {};
+  if (!firstName || !firstName.trim()) return res.status(400).json({ error: 'Prénom requis.' });
+  if (!lastName  || !lastName.trim())  return res.status(400).json({ error: 'Nom requis.' });
+  if (birthDate && !/^\d{2}\/\d{2}\/\d{4}$/.test(birthDate)) return res.status(400).json({ error: 'Date invalide (JJ/MM/AAAA).' });
+  db.prepare('UPDATE users SET first_name = ?, last_name = ?, birth_date = ?, phone = ? WHERE id = ?')
+    .run(firstName.trim(), lastName.trim(), birthDate || null, phone?.trim() || null, req.user.id);
+  res.json({ ok: true });
+});
+
+// Vérification email — demande de code
+app.post('/api/auth/email/verify-request', requireAuth, (req, res) => {
+  const u = db.prepare('SELECT email, email_verified FROM users WHERE id = ?').get(req.user.id);
+  if (!u) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+  if (u.email_verified) return res.status(400).json({ error: 'Email déjà vérifié.' });
+  const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 chiffres
+  const expires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  db.prepare('UPDATE users SET verify_code = ?, verify_expires = ? WHERE id = ?').run(code, expires, req.user.id);
+  console.log(`[VERIFY] Code pour ${u.email} : ${code} (10 min)`);
+  // TODO en prod : envoyer le code par email via SMTP/Resend.
+  // En dev, on retourne le code dans la réponse pour permettre la vérification immédiate.
+  res.json({ ok: true, devCode: process.env.NODE_ENV === 'production' ? undefined : code });
+});
+
+// Vérification email — validation
+app.post('/api/auth/email/verify-confirm', requireAuth, (req, res) => {
+  const { code } = req.body || {};
+  if (!code) return res.status(400).json({ error: 'Code requis.' });
+  const u = db.prepare('SELECT verify_code, verify_expires FROM users WHERE id = ?').get(req.user.id);
+  if (!u?.verify_code) return res.status(400).json({ error: 'Aucun code en attente. Demandez-en un nouveau.' });
+  if (Date.now() > (u.verify_expires || 0)) return res.status(400).json({ error: 'Code expiré. Demandez-en un nouveau.' });
+  if (String(code).trim() !== u.verify_code) return res.status(400).json({ error: 'Code incorrect.' });
+  db.prepare('UPDATE users SET email_verified = 1, verify_code = NULL, verify_expires = NULL WHERE id = ?').run(req.user.id);
+  res.json({ ok: true });
 });
 
 // ── Quota: Status ───────────────────────────────────────

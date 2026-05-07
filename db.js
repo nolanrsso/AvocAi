@@ -78,6 +78,10 @@ try { db.exec('ALTER TABLE users ADD COLUMN last_name TEXT'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN birth_date TEXT'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN stripe_customer_id TEXT'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN verify_code TEXT'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN verify_expires INTEGER'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN phone TEXT'); } catch {}
 
 console.log('✓ Base de données initialisée (avocai.db)');
 
