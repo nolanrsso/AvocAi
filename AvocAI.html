@@ -4016,6 +4016,19 @@
                   Régénérer
                 </button>
               )}
+              <button onClick={() => {
+                  // Stocke ce dossier comme contexte pour le DossierPickerModal et ouvre la recherche d'avocat
+                  window.__avocaiPreselectedDossier = viewing;
+                  window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search', { detail: { preselectedDossier: viewing } }));
+                  onClose();
+                }}
+                title="Envoyer ce dossier à un avocat"
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid rgba(34,197,94,0.4)', background:'rgba(34,197,94,0.08)', color:'#22c55e', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(34,197,94,0.18)'}
+                onMouseLeave={e=>e.currentTarget.style.background='rgba(34,197,94,0.08)'}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                Envoyer à un avocat
+              </button>
               <button onClick={() => downloadDossierPdf(viewing.data, subLabel)}
                 title="Télécharger en PDF"
                 style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'rgba(239,68,68,0.06)', color:'#ef4444', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
@@ -4184,12 +4197,12 @@
       { id:'contacter_avocat',icon:'⚖️', label:'Droit général' },
     ];
 
-    const DossierPickerModal = ({ onClose, user }) => {
+    const DossierPickerModal = ({ onClose, user, preselectedDossier }) => {
       const isPlus = user?.plan === 'pro_plus' || user?.plan === 'admin';
       const [view, setView]         = useState('pick'); // 'pick' | 'match'
       const [convos, setConvos]     = useState([]);
       const [loadingC, setLoadingC] = useState(true);
-      const [selected, setSelected] = useState(null);
+      const [selected, setSelected] = useState(preselectedDossier ? { id: preselectedDossier.id, title: preselectedDossier.title, category: preselectedDossier.category } : null);
       const [domain, setDomain]     = useState(null);
       // Pré-remplissage commune depuis les données existantes
       const [city, setCity] = useState(() => {
@@ -4237,23 +4250,50 @@
           .catch(() => setLoadingC(false));
       }, [isPlus]);
 
+      // Si un dossier est pré-sélectionné (via "Envoyer à un avocat" depuis le viewer), il a déjà sa data complète
+      const [fullDossier, setFullDossier] = useState(preselectedDossier || null);
+      const [loadingFull, setLoadingFull] = useState(false);
+
       if (view === 'match') {
         const cat = selected?.category || domain || 'contacter_avocat';
+        // Si un dossier est sélectionné → on transmet TOUTES ses données (y compris le contenu IA généré)
+        const formData = selected && fullDossier?.data
+          ? { ...fullDossier.data, category: cat, lawyerCity: city, email: user?.email || fullDossier.data?.email || '' }
+          : { category: cat, lawyerCity: city, email: user?.email || '' };
         return (
           <LawyerMatchModal
-            formData={{ category: cat, lawyerCity: city, email: user?.email || '' }}
+            formData={formData}
             onClose={onClose}
           />
         );
       }
 
-      const needsDomain = !selected; // si aucun dossier sélectionné → domaine requis
-      const handleSearch = () => {
+      const handleSearch = async () => {
         const cityOk = !!city.trim();
         const domainOk = !!selected || !!domain;
         if (!cityOk) setCityErr(true);
         if (!domainOk) setDomainErr(true);
-        if (cityOk && domainOk) setView('match');
+        if (!cityOk || !domainOk) return;
+        // Si un dossier est sélectionné, on charge sa data complète (et déclenche la gen si absente)
+        if (selected && !fullDossier) {
+          setLoadingFull(true);
+          try {
+            const r = await fetch(`/api/dossiers/${selected.id}`, { headers: authHeaders() });
+            const d = await r.json();
+            let dossier = d.dossier;
+            if (dossier && !dossier.data?.generated) {
+              // Génère maintenant pour que l'avocat ait le bon contexte
+              try {
+                const gr = await fetch(`/api/dossiers/${selected.id}/generate`, { method:'POST', headers: authHeaders() });
+                const gd = await gr.json();
+                if (gd?.generated) dossier = { ...dossier, data: { ...dossier.data, generated: gd.generated } };
+              } catch {}
+            }
+            setFullDossier(dossier);
+          } catch {}
+          setLoadingFull(false);
+        }
+        setView('match');
       };
 
       return (
@@ -4313,7 +4353,7 @@
                         const isSel = selected?.id === c.id;
                         return (
                           <div key={c.id}
-                            onClick={() => { setSelected(isSel ? null : c); if (!isSel) { setDomain(null); setDomainErr(false); } }}
+                            onClick={() => { setSelected(isSel ? null : c); setFullDossier(null); if (!isSel) { setDomain(null); setDomainErr(false); } }}
                             style={{ padding:'12px 14px', borderRadius:10, border:`1.5px solid ${isSel?'#5e6ad2':'var(--border-default)'}`, background: isSel?'rgba(94,106,210,0.08)':'transparent', cursor:'pointer', transition:'all 0.15s', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}
                             onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor='rgba(94,106,210,0.4)'; }}
                             onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor='var(--border-default)'; }}
@@ -4358,15 +4398,18 @@
 
             {/* Footer */}
             <div style={{ padding:'14px 24px', borderTop:'1px solid var(--border-subtle)', flexShrink:0 }}>
-              <button onClick={handleSearch}
-                style={{ width:'100%', padding:'12px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background='#828fff'}
-                onMouseLeave={e => e.currentTarget.style.background='#5e6ad2'}>
-                {selected
-                  ? `🔍 Avocats pour "${(selected.title||'').slice(0,32)+'…'}"`
-                  : domain
-                    ? `🔍 Avocats — ${DOMAIN_PICKER.find(d=>d.id===domain)?.label || ''}`
-                    : '🔍 Trouver un avocat spécialisé'}
+              <button onClick={handleSearch} disabled={loadingFull}
+                style={{ width:'100%', padding:'12px', borderRadius:8, border:'none', background: loadingFull?'var(--border-default)':'#5e6ad2', color: loadingFull?'var(--text-subtle)':'#fff', fontSize:14, fontWeight:600, cursor: loadingFull?'wait':'pointer', transition:'all 0.15s', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}
+                onMouseEnter={e => { if (!loadingFull) e.currentTarget.style.background='#828fff'; }}
+                onMouseLeave={e => { if (!loadingFull) e.currentTarget.style.background='#5e6ad2'; }}>
+                {loadingFull && <div style={{ width:14, height:14, borderRadius:'50%', border:'2px solid currentColor', borderTopColor:'transparent', animation:'spin 0.8s linear infinite' }}/>}
+                {loadingFull
+                  ? 'Préparation du dossier…'
+                  : selected
+                    ? `🔍 Avocats pour "${(selected.title||'').slice(0,32)+'…'}"`
+                    : domain
+                      ? `🔍 Avocats — ${DOMAIN_PICKER.find(d=>d.id===domain)?.label || ''}`
+                      : '🔍 Trouver un avocat spécialisé'}
               </button>
             </div>
           </div>
@@ -4956,8 +4999,10 @@
       const [showSupportModal, setShowSupportModal] = useState(false);
       const [showAccountModal, setShowAccountModal] = useState(false);
 
+      const [lawyerPreselected, setLawyerPreselected] = useState(null);
+
       useEffect(() => {
-        const onLawyer  = () => setShowLawyerModal(true);
+        const onLawyer  = (e) => { setLawyerPreselected(e?.detail?.preselectedDossier || null); setShowLawyerModal(true); };
         const onDossier = () => setShowDossierModal(true);
         const onAlerts  = () => setShowAlertsModal(true);
         const onSupport = () => setShowSupportModal(true);
@@ -5015,7 +5060,7 @@
           {page === 'landing'
             ? <LandingPage setPage={setPage} onHeroSend={handleHeroSend} />
             : <ChatInterface setPage={setPage} heroMessage={heroMessage} onHeroMessageConsumed={() => setHeroMessage(null)} onUserUpdate={setAppUser} />}
-          {showLawyerModal && <DossierPickerModal onClose={() => setShowLawyerModal(false)} user={appUser} />}
+          {showLawyerModal && <DossierPickerModal onClose={() => { setShowLawyerModal(false); setLawyerPreselected(null); }} user={appUser} preselectedDossier={lawyerPreselected} />}
           {showDossierModal && <DossierListModal onClose={() => setShowDossierModal(false)} userPlan={appUser?.plan} />}
           {showAlertsModal && <AlertsModal onClose={() => setShowAlertsModal(false)} userPlan={appUser?.plan} />}
           {showSupportModal && <SupportModal onClose={() => setShowSupportModal(false)} user={appUser} />}
