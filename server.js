@@ -3,6 +3,9 @@ const express = require('express');
 const OpenAI = require('openai');
 const Stripe = require('stripe');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const validator = require('validator');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -10,16 +13,138 @@ const { OAuth2Client } = require('google-auth-library');
 const db = require('./db');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+// ── Sécurité : trust proxy (pour rate-limit derrière reverse proxy) ──
+app.set('trust proxy', 1);
+
+// ── Sécurité : headers (Helmet) ─────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://unpkg.com', 'https://cdnjs.cloudflare.com', 'https://js.stripe.com', 'https://accounts.google.com'],
+      styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc:   ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc:    ["'self'", 'data:', 'blob:', 'https:'],
+      connectSrc:["'self'", 'https://api.openai.com', 'https://api.stripe.com', 'https://geo.api.gouv.fr', 'https://api-adresse.data.gouv.fr', 'https://nominatim.openstreetmap.org', 'https://overpass-api.de'],
+      frameSrc:  ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com', 'https://accounts.google.com'],
+      objectSrc: ["'none'"],
+      baseUri:   ["'self'"],
+      formAction:["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,        // permet les CDN externes
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, // permet OAuth popups
+  hsts: IS_PROD ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
+
+// ── Sécurité : CORS — restreint aux origines autorisées ──
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',').map(s => s.trim());
+app.use(cors({
+  origin: (origin, cb) => {
+    // Pas d'origin = appel direct (curl, mobile) → autorisé en dev
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes('*')) return cb(null, true);
+    return cb(new Error('CORS non autorisé pour : ' + origin));
+  },
+  credentials: true,
+}));
+
+// ── Body parser : limite la taille pour éviter DoS ─────
+app.use(express.json({ limit: '256kb' }));
+app.use(express.static(path.join(__dirname), {
+  // Pas de cache HTML pour éviter de servir une vieille version après deploy
+  setHeaders: (res, p) => { if (p.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); },
+}));
+
+// ── Sécurité : rate limiters ────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 10,                  // 10 tentatives login/register par IP / 15min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+});
+
+const verifyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1h
+  max: 8,                   // 8 demandes de code/heure
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de demandes de code. Réessayez plus tard.' },
+});
+
+const supportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de messages envoyés. Réessayez dans une heure.' },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,      // 1 min
+  max: 60,                  // 60 req/min/IP — anti-spam global
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de requêtes. Ralentissez.' },
+});
+app.use('/api/', apiLimiter);
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error('✗ JWT_SECRET manquant dans .env');
   process.exit(1);
 }
+if (JWT_SECRET.length < 32) {
+  console.error('✗ JWT_SECRET trop court (min 32 caractères pour la prod).');
+  if (IS_PROD) process.exit(1);
+}
 const JWT_EXPIRES = '7d';
+
+// ── Sécurité : verrouillage compte après tentatives échouées ──
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 min
+
+function recordFailedLogin(email) {
+  const now = Date.now();
+  db.prepare('INSERT OR IGNORE INTO login_attempts (email, count, first_at) VALUES (?, 0, ?)').run(email, now);
+  const row = db.prepare('SELECT count, first_at FROM login_attempts WHERE email = ?').get(email);
+  if (now - row.first_at > LOCKOUT_WINDOW_MS) {
+    db.prepare('UPDATE login_attempts SET count = 1, first_at = ? WHERE email = ?').run(now, email);
+  } else {
+    db.prepare('UPDATE login_attempts SET count = count + 1 WHERE email = ?').run(email);
+  }
+}
+function isLockedOut(email) {
+  const row = db.prepare('SELECT count, first_at FROM login_attempts WHERE email = ?').get(email);
+  if (!row) return false;
+  if (Date.now() - row.first_at > LOCKOUT_WINDOW_MS) return false;
+  return row.count >= LOCKOUT_THRESHOLD;
+}
+function resetFailedLogins(email) {
+  db.prepare('DELETE FROM login_attempts WHERE email = ?').run(email);
+}
+
+// ── Sécurité : validation entrées ──────────────────────
+function validateEmail(e)    { return typeof e === 'string' && validator.isEmail(e) && e.length <= 254; }
+function validatePassword(p) {
+  if (typeof p !== 'string' || p.length < 8 || p.length > 128) return false;
+  // Au moins une lettre + un chiffre
+  return /[A-Za-z]/.test(p) && /\d/.test(p);
+}
+function sanitizeName(n) { return String(n||'').trim().replace(/[<>"'`]/g, '').slice(0, 80); }
+function sanitizeText(t, maxLen = 5000) { return String(t||'').slice(0, maxLen); }
+
+// ── Audit log ──────────────────────────────────────────
+function audit(userId, action, meta) {
+  try {
+    db.prepare('INSERT INTO audit_log (user_id, action, meta, ip, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(userId || null, action, meta ? JSON.stringify(meta).slice(0, 1000) : null, null, Date.now());
+  } catch (e) { console.error('Audit error:', e.message); }
+}
 
 // Google OAuth client
 const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID     || null;
@@ -122,25 +247,26 @@ function checkQuota(req, res, next) {
 }
 
 // ── Auth: Register ──────────────────────────────────────
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   const { email, password, firstName, lastName, birthDate } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis.' });
-  if (!firstName || !lastName) return res.status(400).json({ error: 'Prénom et nom requis.' });
-  if (!birthDate) return res.status(400).json({ error: 'Date de naissance requise.' });
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(birthDate)) return res.status(400).json({ error: 'Date de naissance invalide (format JJ/MM/AAAA).' });
-  if (password.length < 6)   return res.status(400).json({ error: 'Mot de passe trop court (6 caractères minimum).' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Email invalide.' });
+  if (!validateEmail(email))    return res.status(400).json({ error: 'Email invalide.' });
+  if (!validatePassword(password)) return res.status(400).json({ error: 'Mot de passe : 8 caractères min, 1 lettre + 1 chiffre.' });
+  const fn = sanitizeName(firstName);
+  const ln = sanitizeName(lastName);
+  if (!fn || !ln) return res.status(400).json({ error: 'Prénom et nom requis.' });
+  if (!birthDate || !/^\d{2}\/\d{2}\/\d{4}$/.test(birthDate)) return res.status(400).json({ error: 'Date de naissance invalide (JJ/MM/AAAA).' });
 
   const lower = email.toLowerCase().trim();
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(lower);
   if (existing) return res.status(409).json({ error: 'Email déjà utilisé.' });
 
   try {
-    const hash = await bcrypt.hash(password, 10);
-    const r = db.prepare('INSERT INTO users (email, password_hash, first_name, last_name, birth_date) VALUES (?, ?, ?, ?, ?)').run(lower, hash, firstName.trim(), lastName.trim(), birthDate);
+    const hash = await bcrypt.hash(password, 12); // cost 12 = ~250ms, anti brute-force
+    const r = db.prepare('INSERT INTO users (email, password_hash, first_name, last_name, birth_date) VALUES (?, ?, ?, ?, ?)').run(lower, hash, fn, ln, birthDate);
     const userId = Number(r.lastInsertRowid);
     const token = jwt.sign({ id: userId, email: lower }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.json({ token, user: { id: userId, email: lower, plan: 'free', firstName: firstName.trim(), lastName: lastName.trim() } });
+    audit(userId, 'register', { email: lower });
+    res.json({ token, user: { id: userId, email: lower, plan: 'free', firstName: fn, lastName: ln } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Erreur lors de la création du compte.' });
@@ -148,23 +274,41 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // ── Auth: Login ─────────────────────────────────────────
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis.' });
+  if (!validateEmail(email) || typeof password !== 'string' || password.length === 0) {
+    return res.status(400).json({ error: 'Email ou mot de passe invalide.' });
+  }
 
   const lower = email.toLowerCase().trim();
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(lower);
-  if (!user) return res.status(401).json({ error: 'Identifiants invalides.' });
 
-  // Compte Google sans mot de passe
+  if (isLockedOut(lower)) {
+    audit(null, 'login_locked', { email: lower });
+    return res.status(429).json({ error: 'Compte temporairement verrouillé suite à trop de tentatives. Réessayez dans 15 minutes.' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(lower);
+  if (!user) {
+    recordFailedLogin(lower);
+    // Délai constant : empêche l'énumération d'emails par mesure de timing
+    await bcrypt.compare(password, '$2a$12$' + 'x'.repeat(53));
+    return res.status(401).json({ error: 'Identifiants invalides.' });
+  }
+
   if (!user.password_hash) {
     return res.status(401).json({ error: 'Ce compte utilise la connexion Google.' });
   }
 
   const valid = await bcrypt.compare(password, user.password_hash);
-  if (!valid) return res.status(401).json({ error: 'Identifiants invalides.' });
+  if (!valid) {
+    recordFailedLogin(lower);
+    audit(user.id, 'login_failed', { email: lower });
+    return res.status(401).json({ error: 'Identifiants invalides.' });
+  }
 
+  resetFailedLogins(lower);
   const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  audit(user.id, 'login_success');
   res.json({ token, user: { id: user.id, email: user.email, plan: user.plan } });
 });
 
@@ -296,17 +440,21 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 
 // Mise à jour du profil
 app.put('/api/auth/me', requireAuth, (req, res) => {
-  const { firstName, lastName, birthDate, phone } = req.body || {};
-  if (!firstName || !firstName.trim()) return res.status(400).json({ error: 'Prénom requis.' });
-  if (!lastName  || !lastName.trim())  return res.status(400).json({ error: 'Nom requis.' });
-  if (birthDate && !/^\d{2}\/\d{2}\/\d{4}$/.test(birthDate)) return res.status(400).json({ error: 'Date invalide (JJ/MM/AAAA).' });
+  const fn = sanitizeName(req.body?.firstName);
+  const ln = sanitizeName(req.body?.lastName);
+  const bd = req.body?.birthDate;
+  const ph = String(req.body?.phone || '').trim().replace(/[^\d +]/g, '').slice(0, 20);
+  if (!fn) return res.status(400).json({ error: 'Prénom requis.' });
+  if (!ln) return res.status(400).json({ error: 'Nom requis.' });
+  if (bd && !/^\d{2}\/\d{2}\/\d{4}$/.test(bd)) return res.status(400).json({ error: 'Date invalide (JJ/MM/AAAA).' });
   db.prepare('UPDATE users SET first_name = ?, last_name = ?, birth_date = ?, phone = ? WHERE id = ?')
-    .run(firstName.trim(), lastName.trim(), birthDate || null, phone?.trim() || null, req.user.id);
+    .run(fn, ln, bd || null, ph || null, req.user.id);
+  audit(req.user.id, 'profile_update');
   res.json({ ok: true });
 });
 
 // Vérification email — demande de code
-app.post('/api/auth/email/verify-request', requireAuth, (req, res) => {
+app.post('/api/auth/email/verify-request', verifyLimiter, requireAuth, (req, res) => {
   const u = db.prepare('SELECT email, email_verified FROM users WHERE id = ?').get(req.user.id);
   if (!u) return res.status(404).json({ error: 'Utilisateur introuvable.' });
   if (u.email_verified) return res.status(400).json({ error: 'Email déjà vérifié.' });
@@ -362,26 +510,36 @@ app.get('/api/dossiers/:id', requireAuth, (req, res) => {
 });
 
 app.post('/api/dossiers', requireAuth, (req, res) => {
-  const { title, category, data } = req.body || {};
-  if (!title || !category) return res.status(400).json({ error: 'Champs manquants.' });
+  const title    = sanitizeText(req.body?.title, 200);
+  const category = sanitizeText(req.body?.category, 50);
+  const data     = req.body?.data;
+  if (!title.trim() || !category.trim()) return res.status(400).json({ error: 'Champs manquants.' });
+  // Limite la taille du JSON pour éviter les abus
+  const dataStr = JSON.stringify(data || {}).slice(0, 50000);
   const result = db.prepare(
     'INSERT INTO dossiers (user_id, title, category, data) VALUES (?, ?, ?, ?)'
-  ).run(req.user.id, title, category, JSON.stringify(data || {}));
-  res.json({ id: Number(result.lastInsertRowid), title, category });
+  ).run(req.user.id, title.trim(), category.trim(), dataStr);
+  audit(req.user.id, 'dossier_create', { id: Number(result.lastInsertRowid), category });
+  res.json({ id: Number(result.lastInsertRowid), title: title.trim(), category: category.trim() });
 });
 
 app.delete('/api/dossiers/:id', requireAuth, (req, res) => {
-  const r = db.prepare('DELETE FROM dossiers WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID invalide.' });
+  const r = db.prepare('DELETE FROM dossiers WHERE id = ? AND user_id = ?').run(id, req.user.id);
   if (r.changes === 0) return res.status(404).json({ error: 'Dossier introuvable.' });
+  audit(req.user.id, 'dossier_delete', { id });
   res.json({ ok: true });
 });
 
 // Support : enregistre la demande (à brancher sur SMTP plus tard)
-app.post('/api/support', requireAuth, (req, res) => {
-  const { subject, message } = req.body || {};
-  if (!message) return res.status(400).json({ error: 'Message manquant.' });
+app.post('/api/support', supportLimiter, requireAuth, (req, res) => {
+  const subject = sanitizeText(req.body?.subject, 200);
+  const message = sanitizeText(req.body?.message, 5000);
+  if (!message.trim()) return res.status(400).json({ error: 'Message manquant.' });
   const userRow = db.prepare('SELECT email, plan FROM users WHERE id = ?').get(req.user.id);
-  console.log(`[SUPPORT] from ${userRow?.email || req.user.id} (${userRow?.plan}): ${subject || '(no subject)'} | ${message}`);
+  console.log(`[SUPPORT] from ${userRow?.email || req.user.id} (${userRow?.plan}): ${subject || '(no subject)'} | ${message.slice(0, 200)}`);
+  audit(req.user.id, 'support_message', { subject: subject.slice(0, 50) });
   res.json({ ok: true });
 });
 

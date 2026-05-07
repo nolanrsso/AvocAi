@@ -65,10 +65,27 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS login_attempts (
+    email     TEXT PRIMARY KEY,
+    count     INTEGER NOT NULL DEFAULT 0,
+    first_at  INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER,
+    action     TEXT NOT NULL,
+    meta       TEXT,
+    ip         TEXT,
+    created_at INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_conv_user    ON conversations(user_id);
   CREATE INDEX IF NOT EXISTS idx_msg_conv     ON messages(conversation_id);
   CREATE INDEX IF NOT EXISTS idx_daily_req    ON daily_requests(user_id, date);
   CREATE INDEX IF NOT EXISTS idx_dossier_user ON dossiers(user_id);
+  CREATE INDEX IF NOT EXISTS idx_audit_user   ON audit_log(user_id);
+  CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
 `);
 
 // Migrations
