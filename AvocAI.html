@@ -1873,12 +1873,20 @@
                 <div data-form-field style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
                   {DEMARCHE_CATS.map(cat=>(
                     <div key={cat.id} onClick={(e)=>{
-                        const wasNew = data.category !== cat.id;
+                        const card = e.currentTarget;
                         upd('category',cat.id); upd('subcategory','');
-                        if (wasNew) setTimeout(() => {
-                          const subSection = e.currentTarget.closest('[data-form-body]')?.querySelector('[data-subcategory-section]');
-                          subSection?.scrollIntoView({ behavior:'smooth', block:'start' });
-                        }, 80);
+                        // Scroll fluide vers la suite (subcategories + footer)
+                        setTimeout(() => {
+                          const body = card.closest('[data-form-body]');
+                          if (!body) return;
+                          const subSection = body.querySelector('[data-subcategory-section]');
+                          if (subSection) {
+                            const target = body.scrollTop + (subSection.getBoundingClientRect().top - body.getBoundingClientRect().top) - 12;
+                            body.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+                          } else {
+                            body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+                          }
+                        }, 130);
                       }}
                       style={{ padding:'12px 14px', borderRadius:10, cursor:'pointer', border:`2px solid ${data.category===cat.id?'#5e6ad2':'var(--border-default)'}`, background: data.category===cat.id?'rgba(94,106,210,0.09)':'var(--bg-panel)', transition:'all 0.15s' }}>
                       <div style={{fontSize:20, marginBottom:4}}>{cat.icon}</div>
