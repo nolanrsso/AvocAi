@@ -156,9 +156,14 @@ const googleClient = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
   ? new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)
   : null;
 
-// ── Quota config ────────────────────────────────────────
-const QUOTA_LIMITS = { free: 5, pro: 50, pro_plus: 200, admin: Infinity };
-const IP_DAILY_LIMIT_FREE = 5; // max requêtes/jour/IP tous comptes free confondus
+// ── Quota config (en TOKENS OpenAI consommés par jour) ──
+const QUOTA_LIMITS = {
+  free:     30_000,    // 30 k tokens/jour ≈ 8-10 messages
+  pro:      750_000,   // 750 k tokens/jour
+  pro_plus: 3_000_000, // 3 M tokens/jour
+  admin:    Infinity,
+};
+const IP_DAILY_LIMIT_FREE = 30_000; // tokens/jour/IP pour les comptes free (anti multi-comptes)
 
 function todayUTC() {
   return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
@@ -194,56 +199,65 @@ function requireAuth(req, res, next) {
   }
 }
 
-// ── Middleware Quota ────────────────────────────────────
+// ── Helpers Quota (token-based) ─────────────────────────
+
+const fmtTokens = n => n >= 1_000_000 ? (n/1_000_000).toFixed(1).replace(/\.0$/,'') + ' M' : n >= 1_000 ? Math.round(n/1_000) + ' k' : String(n);
+
+// Vérifie le quota AVANT l'appel OpenAI : refuse si déjà au-dessus de la limite
 function checkQuota(req, res, next) {
   const userId = req.user.id;
   const userRecord = db.prepare('SELECT plan FROM users WHERE id = ?').get(userId);
   const plan = userRecord?.plan || 'free';
 
-  // Admin = illimité, bypass total du quota
   if (plan === 'admin') return next();
 
   const limit = QUOTA_LIMITS[plan] ?? QUOTA_LIMITS.free;
   const today = todayUTC();
 
-  // Upsert : crée la ligne si elle n'existe pas
-  db.prepare(
-    'INSERT OR IGNORE INTO daily_requests (user_id, date, count) VALUES (?, ?, 0)'
-  ).run(userId, today);
-
-  const record = db.prepare(
-    'SELECT count FROM daily_requests WHERE user_id = ? AND date = ?'
-  ).get(userId, today);
+  db.prepare('INSERT OR IGNORE INTO daily_requests (user_id, date, count) VALUES (?, ?, 0)').run(userId, today);
+  const record = db.prepare('SELECT count FROM daily_requests WHERE user_id = ? AND date = ?').get(userId, today);
 
   if (record.count >= limit) {
     return res.status(429).json({
-      error: `Quota journalier atteint. Passez à Premium pour continuer.`,
+      error: `Limite quotidienne de tokens atteinte (${fmtTokens(limit)} tokens/jour). Passez à un plan supérieur ou réessayez demain.`,
       quota: { used: record.count, limit, plan, reset: 'minuit UTC' },
     });
   }
 
-  // Limite IP par jour pour les comptes gratuits (bloque les multi-comptes)
+  // Anti-abuse IP pour les comptes free (en tokens partagés par IP)
   if (plan === 'free') {
     const ip = getClientIP(req);
     db.prepare('INSERT OR IGNORE INTO ip_daily_requests (ip, date, count) VALUES (?, ?, 0)').run(ip, today);
     const ipRecord = db.prepare('SELECT count FROM ip_daily_requests WHERE ip = ? AND date = ?').get(ip, today);
     if (ipRecord && ipRecord.count >= IP_DAILY_LIMIT_FREE) {
       return res.status(429).json({
-        error: `Limite journalière atteinte pour votre connexion. Réessayez demain ou passez à Premium.`,
+        error: `Limite quotidienne atteinte pour votre connexion (${fmtTokens(IP_DAILY_LIMIT_FREE)} tokens/jour). Passez à Premium pour continuer sans limite IP.`,
         quota: { used: record.count, limit, plan, reset: 'minuit UTC' },
         ip_exhausted: true,
       });
     }
-    db.prepare('UPDATE ip_daily_requests SET count = count + 1 WHERE ip = ? AND date = ?').run(ip, today);
   }
 
-  // Incrémenter le compteur utilisateur
-  db.prepare(
-    'UPDATE daily_requests SET count = count + 1 WHERE user_id = ? AND date = ?'
-  ).run(userId, today);
-
-  req.quotaInfo = { used: record.count + 1, limit, plan };
+  req.quotaInfo = { used: record.count, limit, plan };
   next();
+}
+
+// Enregistre les tokens consommés APRÈS l'appel OpenAI (utilise response.usage.total_tokens)
+function recordUsage(req, response) {
+  if (!req.user?.id || !response?.usage) return;
+  const total = response.usage.total_tokens || 0;
+  if (total <= 0) return;
+  const today = todayUTC();
+  const userRow = db.prepare('SELECT plan FROM users WHERE id = ?').get(req.user.id);
+  const plan = userRow?.plan || 'free';
+  db.prepare('INSERT OR IGNORE INTO daily_requests (user_id, date, count) VALUES (?, ?, 0)').run(req.user.id, today);
+  db.prepare('UPDATE daily_requests SET count = count + ? WHERE user_id = ? AND date = ?').run(total, req.user.id, today);
+  // Pour les comptes free, on track aussi par IP (anti multi-comptes)
+  if (plan === 'free') {
+    const ip = getClientIP(req);
+    db.prepare('INSERT OR IGNORE INTO ip_daily_requests (ip, date, count) VALUES (?, ?, 0)').run(ip, today);
+    db.prepare('UPDATE ip_daily_requests SET count = count + ? WHERE ip = ? AND date = ?').run(total, ip, today);
+  }
 }
 
 // ── Auth: Register ──────────────────────────────────────
@@ -817,6 +831,7 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
         { role: 'user', content: userPrompt },
       ],
     });
+    recordUsage(req, response);
 
     const raw = response.choices[0]?.message?.content || '{}';
     let generated;
@@ -892,6 +907,7 @@ Ne réponds JAMAIS hors JSON. Pas de markdown, pas de \`\`\`.`;
       ],
       response_format: { type: 'json_object' },
     });
+    recordUsage(req, response);
 
     const raw = response.choices[0]?.message?.content || '{}';
     let parsed;
@@ -1113,6 +1129,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
         { role: 'user', content: message.trim() },
       ],
     });
+    recordUsage(req, response);
 
     const raw = response.choices[0]?.message?.content || '';
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
