@@ -2174,10 +2174,19 @@
             )}
 
             {gen.next_steps?.length > 0 && (
-              <div style={{marginTop:24, padding:'18px 22px', background:'rgba(245,158,11,0.06)', border:'1.5px dashed rgba(245,158,11,0.45)', borderRadius:10}}>
-                <div style={{fontSize:11, fontWeight:700, color:'#f59e0b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10}}>📋 À faire après envoi</div>
+              <div style={{marginTop:24, padding:'18px 22px', background:'rgba(94,106,210,0.06)', border:'1.5px dashed rgba(94,106,210,0.45)', borderRadius:10}}>
+                <div style={{fontSize:11, fontWeight:700, color:'#7170ff', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10}}>📤 Comment envoyer ce document</div>
                 <ol style={{paddingLeft:22, fontSize:13, color:'var(--text-body)', lineHeight:1.7}}>
                   {gen.next_steps.map((s, i) => <li key={i} style={{marginBottom:5}}>{s}</li>)}
+                </ol>
+              </div>
+            )}
+
+            {gen.follow_up?.length > 0 && (
+              <div style={{marginTop:14, padding:'18px 22px', background:'rgba(245,158,11,0.06)', border:'1.5px dashed rgba(245,158,11,0.45)', borderRadius:10}}>
+                <div style={{fontSize:11, fontWeight:700, color:'#f59e0b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10}}>⏭ Et après l'envoi ? Suites possibles</div>
+                <ol style={{paddingLeft:22, fontSize:13, color:'var(--text-body)', lineHeight:1.7}}>
+                  {gen.follow_up.map((s, i) => <li key={i} style={{marginBottom:5}}>{s}</li>)}
                 </ol>
               </div>
             )}
@@ -3278,8 +3287,14 @@
         }
         if (gen.next_steps?.length) {
           lines.push(`──────────────────────────────────────────`);
-          lines.push(`PROCHAINES ÉTAPES :`);
+          lines.push(`COMMENT ENVOYER CE DOCUMENT :`);
           gen.next_steps.forEach((s, i) => lines.push(`${i+1}. ${s}`));
+          lines.push(``);
+        }
+        if (gen.follow_up?.length) {
+          lines.push(`──────────────────────────────────────────`);
+          lines.push(`ET APRÈS L'ENVOI — SUITES POSSIBLES :`);
+          gen.follow_up.forEach((s, i) => lines.push(`${i+1}. ${s}`));
           lines.push(``);
         }
         lines.push(`──────────────────────────────────────────`);
@@ -3843,10 +3858,14 @@
 .annexes { margin-top:14px; padding:14px 18px; background:#f3f4f6; border-radius:8px; font-size:12px; color:#374151; }
 .annexes strong { color:#111; }
 .annexes ul { padding-left:18px; margin-top:6px; line-height:1.7; }
-.next-steps { margin-top:28px; padding:18px 22px; background:#fffbeb; border:1.5px dashed #f59e0b; border-radius:8px; font-size:13px; color:#1f2937; page-break-before: avoid; }
-.next-steps .label { font-weight:700; color:#b45309; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; font-size:11px; }
-.next-steps ol { padding-left:22px; line-height:1.7; }
-.next-steps li { margin-bottom:5px; }`;
+.send-block { margin-top:28px; padding:18px 22px; background:#eef0fb; border:1.5px dashed #5e6ad2; border-radius:8px; font-size:13px; color:#1f2937; }
+.send-block .label { font-weight:700; color:#5e6ad2; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; font-size:11px; }
+.send-block ol { padding-left:22px; line-height:1.7; }
+.send-block li { margin-bottom:5px; }
+.follow-up { margin-top:14px; padding:18px 22px; background:#fffbeb; border:1.5px dashed #f59e0b; border-radius:8px; font-size:13px; color:#1f2937; }
+.follow-up .label { font-weight:700; color:#b45309; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; font-size:11px; }
+.follow-up ol { padding-left:22px; line-height:1.7; }
+.follow-up li { margin-bottom:5px; }`;
 
       const senderBlock = `<div class="sender">
     ${esc(data?.firstName||'')} ${esc(data?.lastName||'')}<br>
@@ -3885,9 +3904,13 @@
     <strong>Pièces à joindre :</strong>
     <ul>${gen.annexes.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
   </div>` : ''}
-  ${gen.next_steps?.length ? `<div class="next-steps">
-    <div class="label">📋 À faire après envoi</div>
+  ${gen.next_steps?.length ? `<div class="send-block">
+    <div class="label">📤 Comment envoyer ce document</div>
     <ol>${gen.next_steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+  </div>` : ''}
+  ${gen.follow_up?.length ? `<div class="follow-up">
+    <div class="label">⏭ Et après l'envoi ? Suites possibles</div>
+    <ol>${gen.follow_up.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
   </div>` : ''}
 </div></body></html>`;
       }

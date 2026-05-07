@@ -634,7 +634,9 @@ RÈGLES STRICTES :
 3. Respecte le formalisme français (en-tête avec coordonnées, objet, formule d'appel, corps argumenté, formule de politesse, signature)
 4. Indique des délais réalistes (8 jours, 15 jours, 30 jours, 2 mois selon le contexte)
 5. Liste les pièces justificatives à joindre
-6. Donne des étapes pratiques claires pour l'utilisateur après envoi (LRAR, dépôt au greffe, etc.)
+6. SÉPARE clairement deux types d'instructions :
+   - "next_steps" = comment ENVOYER le document (imprimer, signer, joindre, LRAR, dépôt greffe…)
+   - "follow_up" = la VRAIE suite APRÈS envoi (délai d'attente, relance, recours juridiques si pas de réponse, prochaines étapes contentieuses concrètes)
 
 IMPORTANT — Ton est ferme, professionnel, factuel. Pas de menaces excessives. Mention des conséquences mesurées et juridiquement fondées.
 
@@ -657,7 +659,8 @@ Réponds UNIQUEMENT en JSON valide avec ce schéma EXACT :
   "closing": "Formule de politesse complète",
   "send_method": "Mode d'envoi recommandé (ex: 'Lettre recommandée avec accusé de réception', 'Dépôt au greffe', 'Envoi via télérecours.fr')",
   "annexes": ["liste des pièces à joindre"],
-  "next_steps": ["instructions pratiques étape par étape pour l'utilisateur après l'envoi"]
+  "next_steps": ["instructions pratiques POUR envoyer le document : imprimer, signer, joindre pièces, mode d'envoi (LRAR/dépôt au greffe), conserver une copie, etc."],
+  "follow_up": ["VRAI suivi APRÈS envoi : combien de temps attendre, comment relancer, recours possibles si pas de réponse (saisine tribunal, plainte avec CPC, médiation, etc.), prochaines étapes juridiques concrètes"]
 }
 
 Aucun markdown. Pas de \`\`\`. Juste le JSON brut.`;
