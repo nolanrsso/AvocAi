@@ -453,6 +453,43 @@ app.put('/api/auth/me', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// Suppression de compte (RGPD Article 17 — Droit à l'effacement)
+app.delete('/api/auth/me', requireAuth, async (req, res) => {
+  const { password, confirmation } = req.body || {};
+  if (confirmation !== 'SUPPRIMER') {
+    return res.status(400).json({ error: 'Confirmation invalide. Tapez SUPPRIMER pour confirmer.' });
+  }
+
+  const user = db.prepare('SELECT id, email, password_hash FROM users WHERE id = ?').get(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+
+  // Si compte avec mot de passe, on exige le mot de passe pour la confirmation
+  if (user.password_hash) {
+    if (!password) return res.status(400).json({ error: 'Mot de passe requis pour confirmer.' });
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) {
+      audit(user.id, 'account_delete_wrong_password');
+      return res.status(401).json({ error: 'Mot de passe incorrect.' });
+    }
+  }
+
+  // Trace l'action AVANT suppression (audit conservé sans user_id)
+  audit(user.id, 'account_delete', { email: user.email });
+
+  try {
+    // 1) Anonymise l'audit log (RGPD : on conserve les logs admin sans PII)
+    db.prepare('UPDATE audit_log SET user_id = NULL WHERE user_id = ?').run(user.id);
+    // 2) Nettoie les login_attempts (table sans FK)
+    db.prepare('DELETE FROM login_attempts WHERE email = ?').run(user.email);
+    // 3) Supprime le user — CASCADE sur conversations, messages, dossiers, daily_requests
+    db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Account delete error:', e);
+    res.status(500).json({ error: 'Erreur lors de la suppression. Contactez le support.' });
+  }
+});
+
 // Vérification email — demande de code
 app.post('/api/auth/email/verify-request', verifyLimiter, requireAuth, (req, res) => {
   const u = db.prepare('SELECT email, email_verified FROM users WHERE id = ?').get(req.user.id);
