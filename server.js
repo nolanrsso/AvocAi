@@ -877,12 +877,21 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
       return res.status(500).json({ error: 'Réponse IA invalide. Réessayez.' });
     }
 
-    data.generated = generated;
+    // En mode 'brief' on préserve la lettre existante (régénération partielle)
+    if (briefOnly && data.generated?.letter) {
+      data.generated = {
+        ...data.generated,
+        brief: generated.brief,
+        documentType: generated.documentType || data.generated.documentType,
+      };
+    } else {
+      data.generated = generated;
+    }
     data.generatedAt = new Date().toISOString();
     db.prepare('UPDATE dossiers SET data = ? WHERE id = ?').run(JSON.stringify(data), id);
 
-    audit(req.user.id, 'dossier_generate', { id, type: generated.documentType });
-    res.json({ generated, dossierId: id });
+    audit(req.user.id, 'dossier_generate', { id, type: generated.documentType, mode: briefOnly ? 'brief' : 'full' });
+    res.json({ generated: data.generated, dossierId: id });
   } catch (err) {
     console.error('Doc gen error:', err.status, err.message);
     res.status(500).json({ error: 'Erreur génération IA. Réessayez.' });
