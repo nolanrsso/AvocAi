@@ -610,6 +610,16 @@ function requirePremiumPlusAndQuota(req, res, next) {
   return checkQuota(req, res, next);
 }
 
+// Middleware : Premium ou Premium+ requis ET incrément quota
+function requirePremiumAndQuota(req, res, next) {
+  const userRow = db.prepare('SELECT plan FROM users WHERE id = ?').get(req.user.id);
+  if (!['pro', 'pro_plus', 'admin'].includes(userRow?.plan)) {
+    return res.status(403).json({ error: 'Réservé aux abonnés Premium.' });
+  }
+  req.userPlan = userRow.plan;
+  return checkQuota(req, res, next);
+}
+
 // Génération du document juridique personnalisé (Premium+ uniquement)
 const DOC_GEN_SYSTEM = `Tu es un assistant juridique français expert. Tu produis SIMULTANÉMENT deux documents distincts à partir d'un même dossier :
 
@@ -697,7 +707,60 @@ SCHÉMA JSON DE RÉPONSE (STRICTEMENT)
 
 Aucun markdown. Pas de \`\`\`. JSON brut uniquement.`;
 
-app.post('/api/dossiers/:id/generate', requireAuth, requirePremiumPlusAndQuota, async (req, res) => {
+// Prompt pour Premium simple : synthèse seulement (pas de lettre)
+const DOC_GEN_SYSTEM_BRIEF = `Tu es un assistant juridique français expert. À partir de la situation du client, tu produis UN SEUL document : un dossier de synthèse destiné à un AVOCAT consulté par le client.
+
+Le brief doit donner à l'avocat toutes les informations qu'il poserait en entretien :
+- Identité civile complète du client
+- Partie adverse (nom, rôle, adresse)
+- Synthèse claire de la situation (2-3 phrases)
+- Chronologie factuelle datée
+- Pièces dont dispose le client (preuves, contrats, courriers, factures…)
+- Démarches déjà entreprises par le client
+- Questions juridiques que le client souhaite poser
+- Objectifs recherchés
+- Articles et codes potentiellement applicables (références précises et réelles)
+- Urgence / prescription / forclusion à connaître
+
+Pas de formulation de lettre. Le brief est en langage clair, structuré en sections, factuel, professionnel.
+
+Réponds UNIQUEMENT en JSON valide avec ce schéma EXACT :
+{
+  "documentType": "Synthèse pour avocat — [domaine du droit]",
+  "letter": null,
+  "brief": {
+    "client": {
+      "fullName": "Prénom NOM",
+      "birthDate": "JJ/MM/AAAA",
+      "birthPlace": "Ville",
+      "nationality": "...",
+      "address": "...",
+      "phone": "...",
+      "email": "...",
+      "profession": "..."
+    },
+    "adverseParty": {
+      "name": "Nom de la partie adverse",
+      "role": "Rôle (Employeur / Bailleur / Vendeur / etc.)",
+      "address": "..."
+    },
+    "summary": "Synthèse 2-3 phrases — l'essentiel du dossier",
+    "facts": ["Fait daté 1 — chronologique", "Fait daté 2", "..."],
+    "evidence": ["Pièce probante 1", "..."],
+    "stepsTaken": ["Démarche déjà entreprise", "..."],
+    "legalQuestions": ["Question juridique précise 1", "..."],
+    "objectives": ["Objectif 1 recherché par le client", "..."],
+    "applicableLaw": [
+      { "reference": "Article 1231-6", "code": "Code civil", "summary": "..." }
+    ],
+    "urgency": "Description des délais légaux à respecter",
+    "additionalInfo": "Toute info utile non couverte ailleurs (ou null)"
+  }
+}
+
+Aucun markdown. Pas de \`\`\`. JSON brut uniquement.`;
+
+app.post('/api/dossiers/:id/generate', requireAuth, requirePremiumAndQuota, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID invalide.' });
 
@@ -706,6 +769,13 @@ app.post('/api/dossiers/:id/generate', requireAuth, requirePremiumPlusAndQuota, 
 
   let data;
   try { data = JSON.parse(row.data || '{}'); } catch { data = {}; }
+
+  // Premium simple → forcé en mode brief (synthèse seule)
+  // Premium+ → mode 'full' par défaut (lettre + synthèse), 'brief' possible si demandé
+  const userPlan = req.userPlan;
+  const requestedMode = req.body?.mode;
+  const briefOnly = (userPlan === 'pro') || requestedMode === 'brief';
+  const systemPrompt = briefOnly ? DOC_GEN_SYSTEM_BRIEF : DOC_GEN_SYSTEM;
 
   const addlText = data.addl ? Object.entries(data.addl).map(([k, v]) => `- ${k}: ${v}`).join('\n') : '(aucune)';
 
@@ -740,10 +810,10 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      max_tokens: 4000,
+      max_tokens: briefOnly ? 2500 : 4000,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: DOC_GEN_SYSTEM },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
     });
@@ -751,7 +821,10 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
     const raw = response.choices[0]?.message?.content || '{}';
     let generated;
     try { generated = JSON.parse(raw); } catch { generated = null; }
-    if (!generated || !generated.letter || !generated.letter.body) {
+    const valid = briefOnly
+      ? (generated?.brief?.summary || generated?.brief?.facts)
+      : (generated?.letter?.body);
+    if (!valid) {
       console.error('Doc gen invalid response:', raw);
       return res.status(500).json({ error: 'Réponse IA invalide. Réessayez.' });
     }

@@ -345,6 +345,7 @@
         { icon: '💬', label: 'Support', sub: '24h prioritaire', action: () => window.dispatchEvent(new CustomEvent('avocai:open-support')) },
       ] : [
         accountItem,
+        { icon: '📋', label: 'Mes synthèses', sub: 'Briefings juridiques pour avocat', action: () => window.dispatchEvent(new CustomEvent('avocai:open-dossiers')) },
         { icon: '👨‍⚖️', label: 'Contacter un avocat', sub: 'Avocats par domaine, près de chez vous', action: () => window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search')) },
         { icon: '💬', label: 'Support', sub: '24h', action: () => window.dispatchEvent(new CustomEvent('avocai:open-support')) },
       ];
@@ -1979,7 +1980,7 @@
               <div style={{display:'flex', gap:10}}>
                 {step>1 && <button onClick={()=>setStep(s=>s-1)} style={{padding:'9px 18px', borderRadius:8, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:14, fontWeight:510, cursor:'pointer'}}>← Précédent</button>}
                 {step<4
-                  ? <button onClick={()=>{ if(canNext()) { if(step===2 && userPlan==='pro') { setShowUpsell(true); } else { setStep(s=>s+1); } } }} disabled={!canNext()}
+                  ? <button onClick={()=>{ if(canNext()) setStep(s=>s+1); }} disabled={!canNext()}
                       style={{padding:'9px 20px', borderRadius:8, border:'none', background: canNext()?'#5e6ad2':'var(--border-default)', color: canNext()?'#fff':'var(--text-subtle)', fontSize:14, fontWeight:510, cursor: canNext()?'pointer':'not-allowed', transition:'background 0.15s'}}
                       onMouseEnter={e=>{ if(canNext()) e.currentTarget.style.background='#828fff'; }}
                       onMouseLeave={e=>{ if(canNext()) e.currentTarget.style.background='#5e6ad2'; }}>
@@ -2110,7 +2111,9 @@
     const DossierDocument = ({ data, subLabel, mode }) => {
       const today = new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
       const { letter, brief } = extractDocs(data?.generated);
-      const showBrief = mode === 'brief';
+      // Mode demandé, sinon auto : letter si dispo, sinon brief
+      const effectiveMode = mode || (letter ? 'letter' : 'brief');
+      const showBrief = effectiveMode === 'brief';
       const doc = showBrief ? brief : letter;
 
       // ── En attente ──
@@ -2612,7 +2615,25 @@
                     .catch(() => {});
                     setDemarcheState(wantsLawyer ? 'lawyers' : 'result');
                   } else {
-                    // Premium simple : toujours direct recherche avocat
+                    // Premium simple : sauvegarde + génère synthèse, puis recherche avocat
+                    const catLabel2 = DEMARCHE_CATS.find(c=>c.id===pendingData.category)?.label || 'Démarche';
+                    const subLabel2 = DEMARCHE_CATS.find(c=>c.id===pendingData.category)?.subs?.find(s=>s.id===pendingData.subcategory)?.label || catLabel2;
+                    fetch('/api/dossiers', {
+                      method: 'POST',
+                      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title: 'Synthèse — ' + subLabel2, category: pendingData.category, data: pendingData }),
+                    })
+                    .then(r => r.json())
+                    .then(d => {
+                      if (d?.id) return fetch(`/api/dossiers/${d.id}/generate`, {
+                        method:'POST',
+                        headers: { ...authHeaders(), 'Content-Type':'application/json' },
+                        body: JSON.stringify({ mode: 'brief' }),
+                      })
+                        .then(r => r.json())
+                        .then(gr => { if (gr?.generated) setDemarcheData(prev => ({ ...prev, generated: gr.generated, _dossierId: d.id })); });
+                    })
+                    .catch(() => {});
                     setDemarcheState('lawyers');
                   }
                   localStorage.removeItem(DOSSIER_KEY);
@@ -2858,20 +2879,26 @@
                 localStorage.setItem(DOSSIER_KEY, JSON.stringify(formData));
                 setDemarcheData(formData);
                 setDemarcheWantsLawyer(!!formData.wantsLawyer);
-                // Sauvegarde serveur uniquement Premium+ (Premium simple n'a pas accès aux dossiers)
-                if (getToken() && (user?.plan === 'pro_plus' || user?.plan === 'admin')) {
+                // Sauvegarde serveur pour Premium et Premium+ (mode brief seul pour Premium simple)
+                const isPaid = user?.plan === 'pro' || user?.plan === 'pro_plus' || user?.plan === 'admin';
+                if (getToken() && isPaid) {
                   const catLabel = DEMARCHE_CATS.find(c=>c.id===formData.category)?.label || 'Démarche';
                   const subLabel = DEMARCHE_CATS.find(c=>c.id===formData.category)?.subs?.find(s=>s.id===formData.subcategory)?.label || catLabel;
-                  // Création + génération IA en parallèle de l'animation de chargement
+                  const isPlus = user?.plan === 'pro_plus' || user?.plan === 'admin';
+                  const titlePrefix = isPlus ? '' : 'Synthèse — ';
                   fetch('/api/dossiers', {
                     method: 'POST',
                     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: subLabel, category: formData.category, data: formData }),
+                    body: JSON.stringify({ title: titlePrefix + subLabel, category: formData.category, data: formData }),
                   })
                   .then(r => r.json())
                   .then(d => {
                     if (d?.id) {
-                      return fetch(`/api/dossiers/${d.id}/generate`, { method:'POST', headers: authHeaders() })
+                      return fetch(`/api/dossiers/${d.id}/generate`, {
+                        method:'POST',
+                        headers: { ...authHeaders(), 'Content-Type':'application/json' },
+                        body: JSON.stringify({ mode: isPlus ? 'full' : 'brief' }),
+                      })
                         .then(r => r.json())
                         .then(gr => {
                           if (gr?.generated) {
@@ -4175,11 +4202,12 @@
     };
 
     const DossierListModal = ({ onClose, userPlan }) => {
+      const isPlus = userPlan === 'pro_plus' || userPlan === 'admin';
       const [dossiers, setDossiers]     = useState([]);
       const [loading, setLoading]       = useState(true);
       const [viewing, setViewing]       = useState(null); // { id, title, category, data, created_at }
       const [viewMode, setViewMode]     = useState('view'); // 'view' | 'edit'
-      const [docMode, setDocMode]       = useState('letter'); // 'letter' | 'brief'
+      const [docMode, setDocMode]       = useState(isPlus ? 'letter' : 'brief'); // Premium simple : brief uniquement
       const [loadingView, setLoadingView] = useState(false);
 
       useEffect(() => {
@@ -4196,9 +4224,13 @@
           const r = await fetch(`/api/dossiers/${id}`, { headers: authHeaders() });
           const d = await r.json();
           setViewing(d.dossier);
-          // Si le dossier n'a pas encore de contenu IA généré → on le génère maintenant
+          // Si pas encore de contenu IA généré → on le génère maintenant (mode adapté au plan)
           if (d.dossier && !d.dossier.data?.generated) {
-            fetch(`/api/dossiers/${id}/generate`, { method:'POST', headers: authHeaders() })
+            fetch(`/api/dossiers/${id}/generate`, {
+              method:'POST',
+              headers: { ...authHeaders(), 'Content-Type':'application/json' },
+              body: JSON.stringify({ mode: isPlus ? 'full' : 'brief' }),
+            })
               .then(rg => rg.json())
               .then(gr => {
                 if (gr?.generated) {
@@ -4333,21 +4365,31 @@
               )}
               {/* Document droite */}
               <div style={{ flex:1, overflowY:'auto', padding:'24px 24px 32px' }}>
-                {/* Tabs : Lettre formelle / Synthèse avocat */}
-                <div style={{ maxWidth:720, margin:'0 auto 18px', display:'flex', gap:8, borderBottom:'1px solid var(--border-subtle)' }}>
-                  <button onClick={() => setDocMode('letter')}
-                    style={{ padding:'10px 16px', background:'none', border:'none', borderBottom: docMode==='letter'?'2px solid #5e6ad2':'2px solid transparent', color: docMode==='letter'?'#7170ff':'var(--text-muted)', fontSize:13, fontWeight: docMode==='letter'?600:500, cursor:'pointer', marginBottom:-1, fontFamily:'inherit' }}>
-                    📨 Lettre formelle
-                  </button>
-                  <button onClick={() => setDocMode('brief')}
-                    style={{ padding:'10px 16px', background:'none', border:'none', borderBottom: docMode==='brief'?'2px solid #5e6ad2':'2px solid transparent', color: docMode==='brief'?'#7170ff':'var(--text-muted)', fontSize:13, fontWeight: docMode==='brief'?600:500, cursor:'pointer', marginBottom:-1, fontFamily:'inherit' }}>
-                    👤 Synthèse pour avocat
-                  </button>
-                  <div style={{ flex:1 }}/>
-                  <span style={{ alignSelf:'center', fontSize:11, color:'var(--text-subtle)', padding:'0 8px' }}>
-                    {docMode==='letter' ? 'À imprimer + signer + envoyer au destinataire' : 'À transmettre à un avocat (briefing complet)'}
-                  </span>
-                </div>
+                {isPlus ? (
+                  /* Premium+ : tabs Lettre / Synthèse */
+                  <div style={{ maxWidth:720, margin:'0 auto 18px', display:'flex', gap:8, borderBottom:'1px solid var(--border-subtle)' }}>
+                    <button onClick={() => setDocMode('letter')}
+                      style={{ padding:'10px 16px', background:'none', border:'none', borderBottom: docMode==='letter'?'2px solid #5e6ad2':'2px solid transparent', color: docMode==='letter'?'#7170ff':'var(--text-muted)', fontSize:13, fontWeight: docMode==='letter'?600:500, cursor:'pointer', marginBottom:-1, fontFamily:'inherit' }}>
+                      📨 Lettre formelle
+                    </button>
+                    <button onClick={() => setDocMode('brief')}
+                      style={{ padding:'10px 16px', background:'none', border:'none', borderBottom: docMode==='brief'?'2px solid #5e6ad2':'2px solid transparent', color: docMode==='brief'?'#7170ff':'var(--text-muted)', fontSize:13, fontWeight: docMode==='brief'?600:500, cursor:'pointer', marginBottom:-1, fontFamily:'inherit' }}>
+                      👤 Synthèse pour avocat
+                    </button>
+                    <div style={{ flex:1 }}/>
+                    <span style={{ alignSelf:'center', fontSize:11, color:'var(--text-subtle)', padding:'0 8px' }}>
+                      {docMode==='letter' ? 'À imprimer + signer + envoyer au destinataire' : 'À transmettre à un avocat (briefing complet)'}
+                    </span>
+                  </div>
+                ) : (
+                  /* Premium simple : synthèse seulement */
+                  <div style={{ maxWidth:720, margin:'0 auto 18px', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#7170ff', display:'flex', alignItems:'center', gap:6 }}>
+                      👤 Synthèse pour avocat
+                    </div>
+                    <span style={{ fontSize:11, color:'var(--text-subtle)' }}>À transmettre à l'avocat le plus spécialisé</span>
+                  </div>
+                )}
                 <DossierDocument data={viewing.data} subLabel={subLabel} mode={docMode} />
                 <div style={{ maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end', gap:10 }}>
                   {viewMode === 'view' && (userPlan === 'pro_plus' || userPlan === 'admin') && (
@@ -4378,8 +4420,8 @@
             {/* Header */}
             <div style={{ padding:'20px 24px 16px', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
               <div>
-                <div style={{ fontSize:18, fontWeight:600, color:'var(--text-primary)' }}>📁 Mes dossiers</div>
-                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>Documents juridiques générés lors de vos démarches</div>
+                <div style={{ fontSize:18, fontWeight:600, color:'var(--text-primary)' }}>{isPlus ? '📁 Mes dossiers' : '📋 Mes synthèses'}</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:3 }}>{isPlus ? 'Documents juridiques générés lors de vos démarches' : 'Briefings juridiques structurés à transmettre à un avocat'}</div>
               </div>
               <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-muted)', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
             </div>
@@ -4401,19 +4443,19 @@
               {!loadingView && !loading && dossiers.length === 0 && (
                 <div style={{ textAlign:'center', padding:'48px 0' }}>
                   <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
-                  <p style={{ fontSize:15, color:'var(--text-muted)', lineHeight:1.6 }}>Aucun dossier pour l'instant.<br/>Commencez une démarche pour générer votre premier document.</p>
+                  <p style={{ fontSize:15, color:'var(--text-muted)', lineHeight:1.6 }}>{isPlus ? 'Aucun dossier pour l\'instant.' : 'Aucune synthèse pour l\'instant.'}<br/>Commencez une démarche pour {isPlus ? 'générer votre premier document.' : 'générer votre première synthèse pour avocat.'}</p>
                 </div>
               )}
               {!loadingView && !loading && dossiers.length > 0 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {dossiers.map(d => (
-                    <div key={d.id} onClick={() => openDossier(d.id, 'edit')}
+                    <div key={d.id} onClick={() => openDossier(d.id, isPlus ? 'edit' : 'view')}
                       style={{ padding:'14px 16px', borderRadius:12, border:'1px solid var(--border-default)', background:'var(--bg-surface)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, transition:'border-color 0.15s, background 0.15s' }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(94,106,210,0.5)'; e.currentTarget.style.background='rgba(94,106,210,0.04)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border-default)'; e.currentTarget.style.background='var(--bg-surface)'; }}
                     >
                       <div style={{ display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0 }}>
-                        <div style={{ width:38, height:38, borderRadius:8, background:'rgba(94,106,210,0.12)', border:'1px solid rgba(94,106,210,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>📄</div>
+                        <div style={{ width:38, height:38, borderRadius:8, background:'rgba(94,106,210,0.12)', border:'1px solid rgba(94,106,210,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>{isPlus?'📄':'📋'}</div>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:14, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.title}</div>
                           <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2, display:'flex', gap:8 }}>
@@ -4424,15 +4466,17 @@
                         </div>
                       </div>
                       <div style={{ display:'flex', gap:6, flexShrink:0, alignItems:'center' }}>
-                        <button onClick={e => { e.stopPropagation(); openDossier(d.id, 'edit'); }}
-                          title="Modifier avec l'IA"
-                          style={{ padding:'6px 12px', borderRadius:6, border:'1px solid rgba(94,106,210,0.3)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:12, fontWeight:600, cursor:'pointer' }}
-                          onMouseEnter={e => e.currentTarget.style.background='rgba(94,106,210,0.18)'}
-                          onMouseLeave={e => e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
-                          Modifier
-                        </button>
+                        {isPlus && (
+                          <button onClick={e => { e.stopPropagation(); openDossier(d.id, 'edit'); }}
+                            title="Modifier avec l'IA"
+                            style={{ padding:'6px 12px', borderRadius:6, border:'1px solid rgba(94,106,210,0.3)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:12, fontWeight:600, cursor:'pointer' }}
+                            onMouseEnter={e => e.currentTarget.style.background='rgba(94,106,210,0.18)'}
+                            onMouseLeave={e => e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
+                            Modifier
+                          </button>
+                        )}
                         <button onClick={e => { e.stopPropagation(); openDossier(d.id, 'view'); }}
-                          title="Voir le dossier"
+                          title={isPlus ? 'Voir le dossier' : 'Voir la synthèse'}
                           style={{ width:30, height:30, borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
                           onMouseEnter={e => { e.currentTarget.style.background='rgba(94,106,210,0.08)'; e.currentTarget.style.color='#7170ff'; e.currentTarget.style.borderColor='rgba(94,106,210,0.3)'; }}
                           onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--text-muted)'; e.currentTarget.style.borderColor='var(--border-default)'; }}>
