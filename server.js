@@ -156,14 +156,20 @@ const googleClient = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
   ? new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)
   : null;
 
-// ── Quota config (en TOKENS OpenAI consommés par jour) ──
-const QUOTA_LIMITS = {
-  free:     30_000,    // 30 k tokens/jour ≈ 8-10 messages
-  pro:      750_000,   // 750 k tokens/jour
-  pro_plus: 3_000_000, // 3 M tokens/jour
-  admin:    Infinity,
+// ── Quotas PAR ACTION (plus précis que tokens) ─────────
+// Actions :
+//   chat   = message dans le chat IA principal (/api/chat)
+//   gen    = génération de dossier ou synthèse (/api/dossiers/:id/generate)
+//   modify = modification IA d'un dossier (/api/dossiers/:id/chat)
+const ACTION_LIMITS = {
+  free:     { chat: 5 },
+  pro:      { chat: 25, gen: 3 },
+  pro_plus: { chat: 25, gen: 3, modify: 20 },
+  admin:    null, // illimité
 };
-const IP_DAILY_LIMIT_FREE = 30_000; // tokens/jour/IP pour les comptes free (anti multi-comptes)
+
+// Anti-abuse IP pour comptes free (en messages chat partagés)
+const IP_DAILY_LIMIT_FREE = 5;
 
 function todayUTC() {
   return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
@@ -199,66 +205,75 @@ function requireAuth(req, res, next) {
   }
 }
 
-// ── Helpers Quota (token-based) ─────────────────────────
+// ── Helpers Quotas par action ───────────────────────────
 
-const fmtTokens = n => n >= 1_000_000 ? (n/1_000_000).toFixed(1).replace(/\.0$/,'') + ' M' : n >= 1_000 ? Math.round(n/1_000) + ' k' : String(n);
+const ACTION_LABELS = { chat:'messages chat', gen:'dossiers/synthèses', modify:'modifications IA' };
 
-// Vérifie le quota AVANT l'appel OpenAI : refuse si déjà au-dessus de la limite
-function checkQuota(req, res, next) {
-  const userId = req.user.id;
-  const userRecord = db.prepare('SELECT plan FROM users WHERE id = ?').get(userId);
-  const plan = userRecord?.plan || 'free';
+// Compteur quotidien d'une action pour un utilisateur
+function getActionCount(userId, action, date) {
+  const row = db.prepare('SELECT count FROM daily_actions WHERE user_id = ? AND date = ? AND action = ?').get(userId, date, action);
+  return row?.count || 0;
+}
 
-  if (plan === 'admin') return next();
+function incrementAction(userId, action, date) {
+  db.prepare('INSERT OR IGNORE INTO daily_actions (user_id, date, action, count) VALUES (?, ?, ?, 0)').run(userId, date, action);
+  db.prepare('UPDATE daily_actions SET count = count + 1 WHERE user_id = ? AND date = ? AND action = ?').run(userId, date, action);
+}
 
-  const limit = QUOTA_LIMITS[plan] ?? QUOTA_LIMITS.free;
-  const today = todayUTC();
+// Middleware : vérifie + incrémente le compteur d'action avant l'appel OpenAI
+function withAction(action) {
+  return (req, res, next) => {
+    const userRow = db.prepare('SELECT plan FROM users WHERE id = ?').get(req.user.id);
+    const plan = userRow?.plan || 'free';
+    req.userPlan = plan;
 
-  db.prepare('INSERT OR IGNORE INTO daily_requests (user_id, date, count) VALUES (?, ?, 0)').run(userId, today);
-  const record = db.prepare('SELECT count FROM daily_requests WHERE user_id = ? AND date = ?').get(userId, today);
+    // Admin : illimité
+    if (plan === 'admin') return next();
 
-  if (record.count >= limit) {
-    return res.status(429).json({
-      error: `Limite quotidienne de tokens atteinte (${fmtTokens(limit)} tokens/jour). Passez à un plan supérieur ou réessayez demain.`,
-      quota: { used: record.count, limit, plan, reset: 'minuit UTC' },
-    });
-  }
-
-  // Anti-abuse IP pour les comptes free (en tokens partagés par IP)
-  if (plan === 'free') {
-    const ip = getClientIP(req);
-    db.prepare('INSERT OR IGNORE INTO ip_daily_requests (ip, date, count) VALUES (?, ?, 0)').run(ip, today);
-    const ipRecord = db.prepare('SELECT count FROM ip_daily_requests WHERE ip = ? AND date = ?').get(ip, today);
-    if (ipRecord && ipRecord.count >= IP_DAILY_LIMIT_FREE) {
-      return res.status(429).json({
-        error: `Limite quotidienne atteinte pour votre connexion (${fmtTokens(IP_DAILY_LIMIT_FREE)} tokens/jour). Passez à Premium pour continuer sans limite IP.`,
-        quota: { used: record.count, limit, plan, reset: 'minuit UTC' },
-        ip_exhausted: true,
+    const limits = ACTION_LIMITS[plan];
+    if (!limits) return res.status(403).json({ error: 'Plan inconnu.' });
+    const limit = limits[action];
+    if (limit == null) {
+      return res.status(403).json({
+        error: `Cette fonctionnalité (${ACTION_LABELS[action] || action}) n'est pas disponible avec votre plan.`,
+        action,
       });
     }
-  }
 
-  req.quotaInfo = { used: record.count, limit, plan };
-  next();
+    const today = todayUTC();
+    const used = getActionCount(req.user.id, action, today);
+    if (used >= limit) {
+      return res.status(429).json({
+        error: `Limite quotidienne atteinte : ${used}/${limit} ${ACTION_LABELS[action] || action} aujourd'hui. Réessayez demain ou passez à un plan supérieur.`,
+        quota: { used, limit, action, plan, reset: 'minuit UTC' },
+      });
+    }
+
+    // Anti-abuse IP pour les comptes free sur le chat (multi-comptes)
+    if (plan === 'free' && action === 'chat') {
+      const ip = getClientIP(req);
+      db.prepare('INSERT OR IGNORE INTO ip_daily_requests (ip, date, count) VALUES (?, ?, 0)').run(ip, today);
+      const ipRecord = db.prepare('SELECT count FROM ip_daily_requests WHERE ip = ? AND date = ?').get(ip, today);
+      if (ipRecord && ipRecord.count >= IP_DAILY_LIMIT_FREE) {
+        return res.status(429).json({
+          error: `Limite quotidienne atteinte pour votre connexion (${IP_DAILY_LIMIT_FREE} messages/jour). Passez à Premium pour continuer.`,
+          ip_exhausted: true,
+        });
+      }
+      db.prepare('UPDATE ip_daily_requests SET count = count + 1 WHERE ip = ? AND date = ?').run(ip, today);
+    }
+
+    // Incrément (avant l'appel — empêche le retry-spam en cas d'échec OpenAI)
+    incrementAction(req.user.id, action, today);
+    req.quotaInfo = { used: used + 1, limit, action, plan };
+    next();
+  };
 }
 
-// Enregistre les tokens consommés APRÈS l'appel OpenAI (utilise response.usage.total_tokens)
-function recordUsage(req, response) {
-  if (!req.user?.id || !response?.usage) return;
-  const total = response.usage.total_tokens || 0;
-  if (total <= 0) return;
-  const today = todayUTC();
-  const userRow = db.prepare('SELECT plan FROM users WHERE id = ?').get(req.user.id);
-  const plan = userRow?.plan || 'free';
-  db.prepare('INSERT OR IGNORE INTO daily_requests (user_id, date, count) VALUES (?, ?, 0)').run(req.user.id, today);
-  db.prepare('UPDATE daily_requests SET count = count + ? WHERE user_id = ? AND date = ?').run(total, req.user.id, today);
-  // Pour les comptes free, on track aussi par IP (anti multi-comptes)
-  if (plan === 'free') {
-    const ip = getClientIP(req);
-    db.prepare('INSERT OR IGNORE INTO ip_daily_requests (ip, date, count) VALUES (?, ?, 0)').run(ip, today);
-    db.prepare('UPDATE ip_daily_requests SET count = count + ? WHERE ip = ? AND date = ?').run(total, ip, today);
-  }
-}
+// Pas de tracking de tokens pour la facturation — système basé uniquement sur les actions.
+// Helper conservé pour rétrocompatibilité (no-op).
+function recordUsage(_req, _response) {}
+function checkQuota(req, res, next) { return next(); }
 
 // ── Auth: Register ──────────────────────────────────────
 app.post('/api/auth/register', authLimiter, async (req, res) => {
@@ -551,12 +566,30 @@ app.post('/api/auth/email/verify-confirm', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Quota: Status ───────────────────────────────────────
+// ── Quota: Status (par action) ──────────────────────────
 app.get('/api/quota/status', requireAuth, (req, res) => {
   const userId = req.user.id;
   const userRecord = db.prepare('SELECT plan FROM users WHERE id = ?').get(userId);
   const plan = userRecord?.plan || 'free';
-  const limit = QUOTA_LIMITS[plan] ?? QUOTA_LIMITS.free;
+  const limits = ACTION_LIMITS[plan] || {};
+  const today = todayUTC();
+  const actions = {};
+  for (const action of ['chat', 'gen', 'modify']) {
+    if (plan === 'admin') {
+      actions[action] = { used: 0, limit: null };
+    } else if (limits[action] != null) {
+      actions[action] = { used: getActionCount(userId, action, today), limit: limits[action] };
+    }
+  }
+  return res.json({ plan, actions, reset: 'minuit UTC' });
+});
+
+// (legacy) — ancienne route token-based, gardée pour compat ascendante
+app.get('/api/quota/status-legacy', requireAuth, (req, res) => {
+  const userId = req.user.id;
+  const userRecord = db.prepare('SELECT plan FROM users WHERE id = ?').get(userId);
+  const plan = userRecord?.plan || 'free';
+  const limit = (ACTION_LIMITS[plan]?.chat) ?? 5;
   const today = todayUTC();
 
   const record = db.prepare(
@@ -774,7 +807,7 @@ Réponds UNIQUEMENT en JSON valide avec ce schéma EXACT :
 
 Aucun markdown. Pas de \`\`\`. JSON brut uniquement.`;
 
-app.post('/api/dossiers/:id/generate', requireAuth, requirePremiumAndQuota, async (req, res) => {
+app.post('/api/dossiers/:id/generate', requireAuth, withAction('gen'), async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID invalide.' });
 
@@ -857,7 +890,7 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
 });
 
 // Chat IA spécialisé pour modifier un dossier (Premium+ uniquement, compte dans le quota journalier)
-app.post('/api/dossiers/:id/chat', requireAuth, requirePremiumPlusAndQuota, async (req, res) => {
+app.post('/api/dossiers/:id/chat', requireAuth, withAction('modify'), async (req, res) => {
   const { message, history } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message manquant.' });
 
@@ -1080,7 +1113,7 @@ demarche_disponible : true seulement si une démarche officielle concrète est p
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans balises \`\`\`.`;
 
 // ── POST /api/chat (auth + quota + persistance) ─────────
-app.post('/api/chat', requireAuth, async (req, res) => {
+app.post('/api/chat', requireAuth, withAction('chat'), async (req, res) => {
   const { message, conversation_id } = req.body || {};
   if (!message || typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Le champ "message" est requis.' });

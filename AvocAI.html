@@ -1214,50 +1214,59 @@
 
     const QuotaBar = ({ quota }) => {
       if (!quota) return null;
-      const { used, limit, plan } = quota;
-      const pct = Math.min(100, Math.round((used / limit) * 100));
-      const color = pct >= 100 ? '#ef4444' : pct >= 66 ? '#f59e0b' : '#27a644';
-      const isPro = plan === 'pro' || plan === 'pro_plus';
-      const fmt = n => n >= 1_000_000 ? (n/1_000_000).toFixed(1).replace(/\.0$/,'') + ' M' : n >= 1_000 ? Math.round(n/1_000) + ' k' : String(n);
-      const planLbl = plan === 'pro_plus' ? 'Premium+' : plan === 'pro' ? 'Premium' : 'Gratuit';
+      const { plan, actions } = quota;
+      const planLbl = plan === 'pro_plus' ? 'Premium+' : plan === 'pro' ? 'Premium' : plan === 'admin' ? 'Admin' : 'Gratuit';
+      const ACTION_LBL = { chat: 'Chats', gen: 'Dossiers', modify: 'Modifs IA' };
 
-      if (isPro) return (
-        <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent:'space-between', marginBottom:5 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFeatureSettings: '"cv01","ss03"', display:'flex', alignItems:'center', gap:6 }}>
-              <span style={{ fontSize:11, color:'#7170ff', fontWeight:600 }}>✦</span> Plan {planLbl}
-            </span>
-            <span style={{ fontSize: 11, fontWeight:600, color, fontFeatureSettings: '"cv01","ss03"' }}>
-              {fmt(used)} / {fmt(limit)} tokens
-            </span>
+      if (!actions || Object.keys(actions).length === 0) {
+        return (
+          <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border-subtle)', fontSize:12, color:'var(--text-muted)' }}>
+            Plan {planLbl} {plan === 'admin' && '· Illimité'}
           </div>
-          <div style={{ height: 3, background: 'var(--border-default)', borderRadius: 9999, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: pct + '%', background: color, borderRadius: 9999, transition: 'width 0.3s ease' }} />
-          </div>
-          {used >= limit && (
-            <div style={{ marginTop: 6, fontSize: 11, color: '#ef4444', fontFeatureSettings: '"cv01","ss03"' }}>
-              Limite atteinte · Reset à minuit UTC
-            </div>
-          )}
-        </div>
-      );
+        );
+      }
+
+      // Construit la barre de chat (toujours visible) + autres actions
+      const chatA = actions.chat;
+      const chatPct = chatA ? Math.min(100, Math.round((chatA.used / chatA.limit) * 100)) : 0;
+      const chatColor = chatPct >= 100 ? '#ef4444' : chatPct >= 66 ? '#f59e0b' : '#27a644';
+      const otherActions = ['gen', 'modify'].filter(a => actions[a]);
 
       return (
-        <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-subtle)', fontFeatureSettings: '"cv01","ss03"' }}>
-              Tokens aujourd'hui
+        <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border-subtle)' }}>
+          {/* Plan + chat principal */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: chatA ? 5 : 0 }}>
+            <span style={{ fontSize:12, color:'var(--text-muted)', display:'flex', alignItems:'center', gap:6, fontFeatureSettings:'"cv01","ss03"' }}>
+              {(plan === 'pro' || plan === 'pro_plus') && <span style={{ fontSize:11, color:'#7170ff', fontWeight:600 }}>✦</span>} Plan {planLbl}
             </span>
-            <span style={{ fontSize: 12, fontWeight: 600, color, fontFeatureSettings: '"cv01","ss03"' }}>
-              {fmt(used)} / {fmt(limit)}
-            </span>
+            {chatA && (
+              <span style={{ fontSize:11, fontWeight:600, color: chatColor, fontFeatureSettings:'"cv01","ss03"' }}>
+                {ACTION_LBL.chat} {chatA.used}/{chatA.limit}
+              </span>
+            )}
           </div>
-          <div style={{ height: 3, background: 'var(--border-default)', borderRadius: 9999, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: pct + '%', background: color, borderRadius: 9999, transition: 'width 0.3s ease' }} />
-          </div>
-          {used >= limit && (
-            <div style={{ marginTop: 6, fontSize: 11, color: '#ef4444', fontFeatureSettings: '"cv01","ss03"' }}>
-              Limite atteinte · Reset à minuit UTC
+          {chatA && (
+            <div style={{ height:3, background:'var(--border-default)', borderRadius:9999, overflow:'hidden', marginBottom: otherActions.length ? 8 : 0 }}>
+              <div style={{ height:'100%', width: chatPct+'%', background: chatColor, borderRadius:9999, transition:'width 0.3s ease' }}/>
+            </div>
+          )}
+          {/* Autres actions (gen / modify) */}
+          {otherActions.length > 0 && (
+            <div style={{ display:'flex', gap:14, fontSize:11, color:'var(--text-subtle)', fontFeatureSettings:'"cv01","ss03"' }}>
+              {otherActions.map(a => {
+                const v = actions[a];
+                const exhausted = v.used >= v.limit;
+                return (
+                  <span key={a} style={{ color: exhausted ? '#ef4444' : 'var(--text-muted)' }}>
+                    {ACTION_LBL[a]} <strong style={{ color: exhausted ? '#ef4444' : 'var(--text-body)' }}>{v.used}/{v.limit}</strong>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {chatA && chatA.used >= chatA.limit && (
+            <div style={{ marginTop:6, fontSize:11, color:'#ef4444', fontFeatureSettings:'"cv01","ss03"' }}>
+              Limite chat atteinte · Reset à minuit UTC
             </div>
           )}
         </div>
@@ -2772,7 +2781,11 @@
           if (res.status === 429) {
             const body = await res.json();
             await new Promise(r => setTimeout(r, 1800));
-            setQuota(prev => prev ? { ...prev, used: prev.limit, remaining: 0 } : null);
+            // Refetch du statut pour avoir les compteurs à jour (format actions)
+            fetch('/api/quota/status', { headers: authHeaders() })
+              .then(r => r.ok ? r.json() : null)
+              .then(d => { if (d) setQuota(d); })
+              .catch(()=>{});
             setMessages(prev => [...prev, { role: 'quota', quota: body.quota, text: body.error }]);
             return;
           }
@@ -2792,12 +2805,12 @@
             } catch {}
           }
 
-          // Mettre à jour le quota affiché
+          // Mettre à jour le quota affiché — refetch complet (format par actions)
           if (data.quota) {
-            setQuota(prev => prev
-              ? { ...prev, used: data.quota.used, remaining: Math.max(0, prev.limit - data.quota.used) }
-              : null
-            );
+            fetch('/api/quota/status', { headers: authHeaders() })
+              .then(r => r.ok ? r.json() : null)
+              .then(d => { if (d) setQuota(d); })
+              .catch(()=>{});
           }
 
           const articles = (data.articles || []).map(a => {
@@ -3070,13 +3083,13 @@
                             </div>
                             <div style={{ fontSize: 16, fontWeight: 590, color: 'var(--text-primary)', marginBottom: 6, fontFeatureSettings: '"cv01","ss03"' }}>
                               {msg.quota?.plan === 'pro' || msg.quota?.plan === 'pro_plus'
-                                ? 'Vous avez utilisé vos 50 analyses du jour'
-                                : 'Vous avez utilisé vos 5 analyses gratuites du jour'}
+                                ? `Vous avez utilisé vos ${msg.quota.limit} messages chat du jour`
+                                : `Vous avez utilisé vos ${msg.quota?.limit || 5} messages gratuits du jour`}
                             </div>
                             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5, fontFeatureSettings: '"cv01","ss03"' }}>
                               {msg.quota?.plan === 'pro' || msg.quota?.plan === 'pro_plus'
-                                ? 'Le compteur se remet à zéro à minuit UTC. Réessayez demain pour continuer vos analyses.'
-                                : 'Passez à Premium pour obtenir 10× plus d\'analyses chaque jour, l\'historique illimité et l\'accès aux démarches officielles guidées.'}
+                                ? 'Le compteur se remet à zéro à minuit UTC. Réessayez demain.'
+                                : 'Passez à Premium pour 5× plus de messages chaque jour, et accès aux synthèses pour avocat.'}
                             </p>
                             {(msg.quota?.plan !== 'pro' && msg.quota?.plan !== 'pro_plus') && (
                               <button onClick={scrollToPricing} style={{

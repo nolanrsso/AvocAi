@@ -65,6 +65,15 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS daily_actions (
+    user_id INTEGER NOT NULL,
+    date    TEXT NOT NULL,
+    action  TEXT NOT NULL,
+    count   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, date, action),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS login_attempts (
     email     TEXT PRIMARY KEY,
     count     INTEGER NOT NULL DEFAULT 0,
