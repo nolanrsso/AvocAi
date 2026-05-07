@@ -610,6 +610,129 @@ function requirePremiumPlusAndQuota(req, res, next) {
   return checkQuota(req, res, next);
 }
 
+// Génération du document juridique personnalisé (Premium+ uniquement)
+const DOC_GEN_SYSTEM = `Tu es un assistant juridique français expert en rédaction de courriers et formulaires officiels.
+
+À partir de la situation du client (catégorie + sous-catégorie + détails), tu détermines le type de document juridique le plus pertinent et tu le rédiges intégralement, prêt à être imprimé/envoyé.
+
+TYPES DE DOCUMENTS POSSIBLES :
+- Mise en demeure (paiement, restitution caution, exécution contractuelle)
+- Lettre de contestation (amende, licenciement, contravention)
+- Recours gracieux ou hiérarchique (administration, préfecture)
+- Plainte simple (faits délictueux, escroquerie, agression)
+- Plainte avec constitution de partie civile
+- Lettre de réclamation (consommation, SAV, service public)
+- Lettre de rétractation (achat à distance — 14 jours)
+- Saisine du tribunal compétent (Conseil de prud'hommes, juge aux affaires familiales, tribunal judiciaire, tribunal administratif)
+- Requête en exonération (amende routière)
+- Sommation interpellative
+- Lettre de mise en jeu de garantie (bancaire, assurance, vices cachés)
+
+RÈGLES STRICTES :
+1. Cite des articles de loi PRÉCIS et RÉELS (Code civil, Code du travail, Code de la consommation, Code de procédure pénale, Code de la route, Code de la santé publique, etc.)
+2. Intègre TOUS les faits du dossier (noms, dates, montants, lieux)
+3. Respecte le formalisme français (en-tête avec coordonnées, objet, formule d'appel, corps argumenté, formule de politesse, signature)
+4. Indique des délais réalistes (8 jours, 15 jours, 30 jours, 2 mois selon le contexte)
+5. Liste les pièces justificatives à joindre
+6. Donne des étapes pratiques claires pour l'utilisateur après envoi (LRAR, dépôt au greffe, etc.)
+
+IMPORTANT — Ton est ferme, professionnel, factuel. Pas de menaces excessives. Mention des conséquences mesurées et juridiquement fondées.
+
+Réponds UNIQUEMENT en JSON valide avec ce schéma EXACT :
+{
+  "documentType": "Mise en demeure" | "Plainte simple" | "Recours gracieux" | "Lettre de contestation" | "Saisine du Conseil de prud'hommes" | autres types,
+  "title": "TITRE EN MAJUSCULES (ex: MISE EN DEMEURE DE PAYER, REQUÊTE EN EXONÉRATION)",
+  "recipient": {
+    "name": "Destinataire (ex: 'Société XYZ', 'Monsieur le Procureur de la République', 'Madame le Greffier en chef')",
+    "address": "Adresse complète OU 'Tribunal judiciaire de [ville]' selon le contexte"
+  },
+  "subject": "Objet bref de la lettre",
+  "salutation": "Formule d'appel — 'Madame, Monsieur,' OU 'Monsieur le Procureur de la République,' OU 'Monsieur le Juge,' selon le destinataire",
+  "body": ["paragraphe 1", "paragraphe 2", "..."],
+  "articles": [
+    {"reference": "Article 1231-6", "code": "Code civil", "summary": "Brève explication"}
+  ],
+  "deadline_text": "Délai accordé au destinataire (ex: '8 jours', '30 jours', 'Sans délai')",
+  "consequences": "Phrase indiquant ce qui se passe en l'absence de réponse",
+  "closing": "Formule de politesse complète",
+  "send_method": "Mode d'envoi recommandé (ex: 'Lettre recommandée avec accusé de réception', 'Dépôt au greffe', 'Envoi via télérecours.fr')",
+  "annexes": ["liste des pièces à joindre"],
+  "next_steps": ["instructions pratiques étape par étape pour l'utilisateur après l'envoi"]
+}
+
+Aucun markdown. Pas de \`\`\`. Juste le JSON brut.`;
+
+app.post('/api/dossiers/:id/generate', requireAuth, requirePremiumPlusAndQuota, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID invalide.' });
+
+  const row = db.prepare('SELECT * FROM dossiers WHERE id = ? AND user_id = ?').get(id, req.user.id);
+  if (!row) return res.status(404).json({ error: 'Dossier introuvable.' });
+
+  let data;
+  try { data = JSON.parse(row.data || '{}'); } catch { data = {}; }
+
+  const addlText = data.addl ? Object.entries(data.addl).map(([k, v]) => `- ${k}: ${v}`).join('\n') : '(aucune)';
+
+  const userPrompt = `Catégorie : ${row.category}
+Sous-catégorie : ${data.subcategory || 'non précisée'}
+
+CLIENT :
+- Nom complet : ${data.firstName || ''} ${data.lastName || ''}
+- Date de naissance : ${data.birthDate || 'non renseignée'}
+- Lieu de naissance : ${data.birthPlace || 'non renseigné'}
+- Nationalité : ${data.nationality || 'française'}
+- Adresse : ${data.address || 'non renseignée'}
+- Téléphone : ${data.phone || 'non renseigné'}
+- Email : ${data.email || 'non renseigné'}
+- Profession : ${data.profession || 'non renseignée'}
+
+PARTIE ADVERSE :
+- Identité : ${data.adverseParty || 'non précisée'}
+- Adresse : ${data.adverseAddress || 'non renseignée'}
+
+SITUATION DÉCRITE :
+${data.problemDescription || '(non renseignée)'}
+
+CHRONOLOGIE :
+${data.timeline || '(non renseignée)'}
+
+INFORMATIONS COMPLÉMENTAIRES :
+${addlText}
+
+Rédige le document juridique le plus adapté à cette situation, en intégrant tous ces éléments.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 2500,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: DOC_GEN_SYSTEM },
+        { role: 'user', content: userPrompt },
+      ],
+    });
+
+    const raw = response.choices[0]?.message?.content || '{}';
+    let generated;
+    try { generated = JSON.parse(raw); } catch { generated = null; }
+    if (!generated || !generated.body) {
+      console.error('Doc gen invalid response:', raw);
+      return res.status(500).json({ error: 'Réponse IA invalide. Réessayez.' });
+    }
+
+    data.generated = generated;
+    data.generatedAt = new Date().toISOString();
+    db.prepare('UPDATE dossiers SET data = ? WHERE id = ?').run(JSON.stringify(data), id);
+
+    audit(req.user.id, 'dossier_generate', { id, type: generated.documentType });
+    res.json({ generated, dossierId: id });
+  } catch (err) {
+    console.error('Doc gen error:', err.status, err.message);
+    res.status(500).json({ error: 'Erreur génération IA. Réessayez.' });
+  }
+});
+
 // Chat IA spécialisé pour modifier un dossier (Premium+ uniquement, compte dans le quota journalier)
 app.post('/api/dossiers/:id/chat', requireAuth, requirePremiumPlusAndQuota, async (req, res) => {
   const { message, history } = req.body || {};
