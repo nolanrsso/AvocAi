@@ -2099,25 +2099,39 @@
     const DOSSIER_KEY = 'avocai_dossier_pending';
 
     /* Contenu partagé du document (flouté ou non) */
-    const DossierDocument = ({ data, subLabel }) => {
+    // Extrait letter et brief depuis data.generated (rétrocompat ancien format plat)
+    const extractDocs = (gen) => {
+      if (!gen) return { letter: null, brief: null };
+      if (gen.letter || gen.brief) return { letter: gen.letter || null, brief: gen.brief || null };
+      // Ancien format : tout est à la racine = lettre uniquement
+      return { letter: gen, brief: null };
+    };
+
+    const DossierDocument = ({ data, subLabel, mode }) => {
       const today = new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
-      const gen = data?.generated;
+      const { letter, brief } = extractDocs(data?.generated);
+      const showBrief = mode === 'brief';
+      const doc = showBrief ? brief : letter;
 
-      const senderBlock = (
-        <div style={{textAlign:'right', marginBottom:24, fontSize:13, color:'var(--text-muted)', lineHeight:1.8}}>
-          {data?.firstName} {data?.lastName}<br/>
-          {data?.address||'Adresse non renseignée'}<br/>
-          {data?.phone && <>{data.phone}<br/></>}
-          {data?.email && <>{data.email}<br/></>}
-          <span style={{display:'inline-block', marginTop:6}}>Le {today}</span>
-        </div>
-      );
+      // ── En attente ──
+      if (!doc) {
+        return (
+          <div style={{maxWidth:680, margin:'0 auto', background:'var(--bg-surface)', borderRadius:12, padding:'48px 56px', border:'1px solid var(--border-default)'}}>
+            <div style={{textAlign:'center', padding:'40px 24px', background:'var(--bg-subtle)', borderRadius:10, color:'var(--text-muted)'}}>
+              <div style={{fontSize:32, marginBottom:12}}>⏳</div>
+              <div style={{fontSize:14, fontWeight:600, color:'var(--text-primary)', marginBottom:6}}>{showBrief?'Synthèse en cours de rédaction…':'Document en cours de rédaction…'}</div>
+              <div style={{fontSize:12, lineHeight:1.6}}>L'IA juridique structure votre dossier.<br/>Cela peut prendre quelques secondes.</div>
+            </div>
+          </div>
+        );
+      }
 
-      // ── Vue avec contenu IA généré (lettre formelle pure) ─────────────
-      if (gen) {
+      // ══════════════════════════════════════════════════
+      // Vue 1 : LETTRE FORMELLE (à imprimer / envoyer)
+      // ══════════════════════════════════════════════════
+      if (!showBrief) {
         return (
           <div style={{maxWidth:680, margin:'0 auto', background:'#ffffff', color:'#111', borderRadius:4, padding:'56px 64px', border:'1px solid var(--border-default)', fontFamily:'"Times New Roman", Georgia, serif'}}>
-            {/* Expéditeur */}
             <div style={{textAlign:'right', marginBottom:36, fontSize:13, color:'#222', lineHeight:1.7}}>
               {data?.firstName} {data?.lastName}<br/>
               {data?.address || ''}<br/>
@@ -2126,50 +2140,45 @@
               <span style={{display:'inline-block', marginTop:10}}>Le {today}</span>
             </div>
 
-            {/* Destinataire */}
-            {gen.recipient && (
+            {doc.recipient && (
               <div style={{marginTop:24, marginBottom:32, fontSize:13, lineHeight:1.7, color:'#222'}}>
-                {gen.recipient.name}<br/>
-                {gen.recipient.address}
+                {doc.recipient.name}<br/>
+                {doc.recipient.address}
               </div>
             )}
 
-            {/* Objet + mode d'envoi */}
-            {gen.subject && (
+            {doc.subject && (
               <div style={{marginTop:24, marginBottom:6, fontSize:14, color:'#111'}}>
-                <strong>Objet :</strong> {gen.subject}
+                <strong>Objet :</strong> {doc.subject}
               </div>
             )}
-            {gen.send_method && (
+            {doc.send_method && (
               <div style={{fontSize:13, color:'#444', marginBottom:32}}>
-                {gen.send_method}
+                {doc.send_method}
               </div>
             )}
 
-            {/* Titre */}
-            {gen.title && (
+            {doc.title && (
               <div style={{textAlign:'center', fontWeight:700, fontSize:15, color:'#111', textTransform:'uppercase', letterSpacing:1, margin:'36px 0 32px'}}>
-                {gen.title}
+                {doc.title}
               </div>
             )}
 
-            {/* Corps */}
             <div style={{fontSize:14, lineHeight:1.9, color:'#111'}}>
-              <p style={{marginBottom:18}}>{gen.salutation || 'Madame, Monsieur,'}</p>
-              {(gen.body||[]).map((p, i) => (
+              <p style={{marginBottom:18}}>{doc.salutation || 'Madame, Monsieur,'}</p>
+              {(doc.body||[]).map((p, i) => (
                 <p key={i} style={{marginBottom:18, textAlign:'justify'}}>{p}</p>
               ))}
-              {gen.consequences && <p style={{marginBottom:18, textAlign:'justify'}}>{gen.consequences}</p>}
-              <p style={{marginTop:32, marginBottom:6}}>{gen.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.'}</p>
+              {doc.consequences && <p style={{marginBottom:18, textAlign:'justify'}}>{doc.consequences}</p>}
+              <p style={{marginTop:32, marginBottom:6}}>{doc.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.'}</p>
               <p style={{marginTop:48, fontWeight:600}}>{data?.firstName} {data?.lastName}</p>
             </div>
 
-            {/* Pièces jointes (convention française : PJ en bas de lettre) */}
-            {gen.annexes?.length > 0 && (
+            {doc.annexes?.length > 0 && (
               <div style={{marginTop:48, fontSize:13, color:'#222', lineHeight:1.7, borderTop:'1px solid #e5e7eb', paddingTop:16}}>
                 <strong>Pièces jointes :</strong>
                 <ul style={{marginTop:6, paddingLeft:18}}>
-                  {gen.annexes.map((a, i) => <li key={i} style={{marginBottom:2}}>{a}</li>)}
+                  {doc.annexes.map((a, i) => <li key={i} style={{marginBottom:2}}>{a}</li>)}
                 </ul>
               </div>
             )}
@@ -2177,15 +2186,120 @@
         );
       }
 
-      // ── Vue par défaut (en attente de génération) ───────
+      // ══════════════════════════════════════════════════
+      // Vue 2 : SYNTHÈSE POUR AVOCAT (dossier de briefing)
+      // ══════════════════════════════════════════════════
+      const b = doc;
+      const Section = ({ title, children }) => (
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:11, fontWeight:700, color:'#111', textTransform:'uppercase', letterSpacing:0.6, borderBottom:'1px solid #999', paddingBottom:4, marginBottom:10}}>{title}</div>
+          {children}
+        </div>
+      );
+      const Field = ({ label, value }) => value ? (
+        <div style={{display:'flex', gap:8, fontSize:13, marginBottom:4, color:'#111'}}>
+          <span style={{minWidth:130, color:'#555'}}>{label}</span>
+          <span>{value}</span>
+        </div>
+      ) : null;
       return (
-        <div style={{maxWidth:680, margin:'0 auto', background:'var(--bg-surface)', borderRadius:12, padding:'48px 56px', border:'1px solid var(--border-default)'}}>
-          {senderBlock}
-          <div style={{textAlign:'center', padding:'40px 24px', background:'var(--bg-subtle)', borderRadius:10, color:'var(--text-muted)', marginTop:24}}>
-            <div style={{fontSize:32, marginBottom:12}}>⏳</div>
-            <div style={{fontSize:14, fontWeight:600, color:'var(--text-primary)', marginBottom:6}}>Document en cours de rédaction…</div>
-            <div style={{fontSize:12, lineHeight:1.6}}>L'IA juridique adapte la lettre à votre situation.<br/>Cela peut prendre quelques secondes.</div>
+        <div style={{maxWidth:720, margin:'0 auto', background:'#ffffff', color:'#111', borderRadius:4, padding:'48px 56px', border:'1px solid var(--border-default)', fontFamily:'"Inter", Arial, sans-serif'}}>
+          <div style={{textAlign:'center', marginBottom:32, paddingBottom:14, borderBottom:'2px solid #111'}}>
+            <div style={{fontSize:11, fontWeight:600, color:'#666', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:6}}>Dossier de synthèse — Consultation avocat</div>
+            <div style={{fontSize:18, fontWeight:700, color:'#111'}}>{subLabel}</div>
+            <div style={{fontSize:11, color:'#666', marginTop:6}}>Établi le {today}</div>
           </div>
+
+          {b.summary && (
+            <div style={{padding:'14px 16px', background:'#f9fafb', borderLeft:'3px solid #5e6ad2', marginBottom:24, fontSize:13.5, lineHeight:1.6, color:'#111'}}>
+              {b.summary}
+            </div>
+          )}
+
+          {b.client && (
+            <Section title="Identité du client">
+              <Field label="Nom complet" value={b.client.fullName}/>
+              <Field label="Date de naissance" value={b.client.birthDate}/>
+              <Field label="Lieu de naissance" value={b.client.birthPlace}/>
+              <Field label="Nationalité" value={b.client.nationality}/>
+              <Field label="Adresse" value={b.client.address}/>
+              <Field label="Téléphone" value={b.client.phone}/>
+              <Field label="Email" value={b.client.email}/>
+              <Field label="Profession" value={b.client.profession}/>
+            </Section>
+          )}
+
+          {b.adverseParty && (
+            <Section title="Partie adverse">
+              <Field label="Identité" value={b.adverseParty.name}/>
+              <Field label="Rôle" value={b.adverseParty.role}/>
+              <Field label="Adresse" value={b.adverseParty.address}/>
+            </Section>
+          )}
+
+          {b.facts?.length > 0 && (
+            <Section title="Faits chronologiques">
+              <ol style={{paddingLeft:20, fontSize:13, lineHeight:1.7, color:'#111'}}>
+                {b.facts.map((f, i) => <li key={i} style={{marginBottom:6}}>{f}</li>)}
+              </ol>
+            </Section>
+          )}
+
+          {b.evidence?.length > 0 && (
+            <Section title="Pièces dont dispose le client">
+              <ul style={{paddingLeft:20, fontSize:13, lineHeight:1.7, color:'#111'}}>
+                {b.evidence.map((e, i) => <li key={i} style={{marginBottom:4}}>{e}</li>)}
+              </ul>
+            </Section>
+          )}
+
+          {b.stepsTaken?.length > 0 && (
+            <Section title="Démarches déjà entreprises">
+              <ul style={{paddingLeft:20, fontSize:13, lineHeight:1.7, color:'#111'}}>
+                {b.stepsTaken.map((s, i) => <li key={i} style={{marginBottom:4}}>{s}</li>)}
+              </ul>
+            </Section>
+          )}
+
+          {b.legalQuestions?.length > 0 && (
+            <Section title="Questions juridiques posées">
+              <ol style={{paddingLeft:20, fontSize:13, lineHeight:1.7, color:'#111'}}>
+                {b.legalQuestions.map((q, i) => <li key={i} style={{marginBottom:4}}>{q}</li>)}
+              </ol>
+            </Section>
+          )}
+
+          {b.objectives?.length > 0 && (
+            <Section title="Objectifs recherchés">
+              <ul style={{paddingLeft:20, fontSize:13, lineHeight:1.7, color:'#111'}}>
+                {b.objectives.map((o, i) => <li key={i} style={{marginBottom:4}}>{o}</li>)}
+              </ul>
+            </Section>
+          )}
+
+          {b.applicableLaw?.length > 0 && (
+            <Section title="Articles potentiellement applicables">
+              <ul style={{paddingLeft:20, fontSize:13, lineHeight:1.7, color:'#111', listStyle:'none'}}>
+                {b.applicableLaw.map((a, i) => (
+                  <li key={i} style={{marginBottom:4}}>
+                    <strong>{a.reference}</strong>{a.code ? ' (' + a.code + ')' : ''}{a.summary ? ' — ' + a.summary : ''}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          {b.urgency && (
+            <Section title="Urgence / délais à respecter">
+              <div style={{fontSize:13, lineHeight:1.6, color:'#111'}}>{b.urgency}</div>
+            </Section>
+          )}
+
+          {b.additionalInfo && (
+            <Section title="Informations complémentaires">
+              <div style={{fontSize:13, lineHeight:1.6, color:'#111'}}>{b.additionalInfo}</div>
+            </Section>
+          )}
         </div>
       );
     };
@@ -3227,41 +3341,97 @@
       const gen = data?.generated;
       const lines = [];
 
-      if (gen) {
+      const { letter, brief } = extractDocs(gen);
+
+      // Pour un avocat → on envoie la SYNTHÈSE (pas la lettre formelle)
+      if (brief) {
+        const b = brief;
+        lines.push(`Bonjour Maître,`);
+        lines.push(``);
+        lines.push(`Je sollicite votre conseil dans le dossier suivant. Voici une synthèse complète pour vous permettre de prendre connaissance du contexte.`);
+        lines.push(``);
+        lines.push(`══════════════════════════════════════════`);
+        lines.push(`DOSSIER DE SYNTHÈSE — ${(subLabel||'').toUpperCase()}`);
+        lines.push(`Établi le ${today}`);
+        lines.push(`══════════════════════════════════════════`);
+        lines.push(``);
+        if (b.summary) { lines.push(`SYNTHÈSE`); lines.push(b.summary); lines.push(``); }
+        if (b.client) {
+          lines.push(`IDENTITÉ DU CLIENT`);
+          if (b.client.fullName)    lines.push(`Nom complet     : ${b.client.fullName}`);
+          if (b.client.birthDate)   lines.push(`Date naissance  : ${b.client.birthDate}`);
+          if (b.client.birthPlace)  lines.push(`Lieu naissance  : ${b.client.birthPlace}`);
+          if (b.client.nationality) lines.push(`Nationalité     : ${b.client.nationality}`);
+          if (b.client.address)     lines.push(`Adresse         : ${b.client.address}`);
+          if (b.client.phone)       lines.push(`Téléphone       : ${b.client.phone}`);
+          if (b.client.email)       lines.push(`Email           : ${b.client.email}`);
+          if (b.client.profession)  lines.push(`Profession      : ${b.client.profession}`);
+          lines.push(``);
+        }
+        if (b.adverseParty) {
+          lines.push(`PARTIE ADVERSE`);
+          if (b.adverseParty.name)    lines.push(`Identité : ${b.adverseParty.name}`);
+          if (b.adverseParty.role)    lines.push(`Rôle     : ${b.adverseParty.role}`);
+          if (b.adverseParty.address) lines.push(`Adresse  : ${b.adverseParty.address}`);
+          lines.push(``);
+        }
+        if (b.facts?.length) { lines.push(`FAITS CHRONOLOGIQUES`); b.facts.forEach((f,i)=>lines.push(`${i+1}. ${f}`)); lines.push(``); }
+        if (b.evidence?.length) { lines.push(`PIÈCES DONT JE DISPOSE`); b.evidence.forEach(e=>lines.push(`- ${e}`)); lines.push(``); }
+        if (b.stepsTaken?.length) { lines.push(`DÉMARCHES DÉJÀ ENTREPRISES`); b.stepsTaken.forEach(s=>lines.push(`- ${s}`)); lines.push(``); }
+        if (b.legalQuestions?.length) { lines.push(`QUESTIONS JURIDIQUES`); b.legalQuestions.forEach((q,i)=>lines.push(`${i+1}. ${q}`)); lines.push(``); }
+        if (b.objectives?.length) { lines.push(`OBJECTIFS RECHERCHÉS`); b.objectives.forEach(o=>lines.push(`- ${o}`)); lines.push(``); }
+        if (b.applicableLaw?.length) {
+          lines.push(`ARTICLES POTENTIELLEMENT APPLICABLES`);
+          b.applicableLaw.forEach(a => lines.push(`- ${a.reference}${a.code?' ('+a.code+')':''}${a.summary?' — '+a.summary:''}`));
+          lines.push(``);
+        }
+        if (b.urgency) { lines.push(`URGENCE / DÉLAIS`); lines.push(b.urgency); lines.push(``); }
+        if (b.additionalInfo) { lines.push(`INFOS COMPLÉMENTAIRES`); lines.push(b.additionalInfo); lines.push(``); }
+        lines.push(`══════════════════════════════════════════`);
+        lines.push(``);
+        lines.push(`Je reste à votre disposition pour tout complément d'information et serais reconnaissant(e) de pouvoir convenir d'un rendez-vous.`);
+        lines.push(``);
+        lines.push(`Cordialement,`);
+        lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
+        if (data?.phone) lines.push(data.phone);
+        if (data?.email) lines.push(data.email);
+        return lines.join('\n');
+      }
+
+      // Pas de brief mais une lettre → on envoie la lettre formelle (rétrocompat)
+      if (letter) {
         lines.push(`Bonjour Maître,`);
         lines.push(``);
         lines.push(`Je vous adresse ci-dessous mon dossier dans le cadre d'une demande de consultation juridique.`);
         lines.push(``);
         lines.push(`---`);
         lines.push(``);
-        // Expéditeur
         lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
         if (data?.address) lines.push(data.address);
         if (data?.phone)   lines.push(data.phone);
         if (data?.email)   lines.push(data.email);
         lines.push(`Le ${today}`);
         lines.push(``);
-        // Destinataire
-        if (gen.recipient) {
-          lines.push(gen.recipient.name||'');
-          if (gen.recipient.address) lines.push(gen.recipient.address);
+        if (letter.recipient) {
+          lines.push(letter.recipient.name||'');
+          if (letter.recipient.address) lines.push(letter.recipient.address);
           lines.push(``);
         }
-        if (gen.subject) { lines.push(`Objet : ${gen.subject}`); }
-        if (gen.send_method) { lines.push(gen.send_method); }
+        if (letter.subject) lines.push(`Objet : ${letter.subject}`);
+        if (letter.send_method) lines.push(letter.send_method);
         lines.push(``);
-        if (gen.title) { lines.push(gen.title); lines.push(``); }
-        lines.push(gen.salutation || 'Madame, Monsieur,');
+        if (letter.title) { lines.push(letter.title); lines.push(``); }
+        lines.push(letter.salutation || 'Madame, Monsieur,');
         lines.push(``);
-        (gen.body||[]).forEach(p => { lines.push(p); lines.push(``); });
-        if (gen.consequences) { lines.push(gen.consequences); lines.push(``); }
-        lines.push(gen.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.');
+        (letter.body||[]).forEach(p => { lines.push(p); lines.push(``); });
+        if (letter.consequences) { lines.push(letter.consequences); lines.push(``); }
+        lines.push(letter.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.');
         lines.push(``);
         lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
         lines.push(``);
-        if (gen.annexes?.length) {
+        if (letter.annexes?.length) {
           lines.push(`Pièces jointes :`);
-          gen.annexes.forEach(a => lines.push(`- ${a}`));
+          letter.annexes.forEach(a => lines.push(`- ${a}`));
         }
         return lines.join('\n');
       }
@@ -3798,10 +3968,15 @@
 
     /* ── Export dossier (PDF / DOC) ─────────────────────── */
 
-    const buildDossierHtml = (data, subLabel) => {
+    const buildDossierHtml = (data, subLabel, mode='letter') => {
       const today = new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
       const esc = s => String(s||'').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
       const gen = data?.generated;
+      const docs = (() => {
+        if (!gen) return { letter: null, brief: null };
+        if (gen.letter || gen.brief) return { letter: gen.letter, brief: gen.brief };
+        return { letter: gen, brief: null };
+      })();
 
       const css = `body { font-family: 'Times New Roman', Georgia, serif; color:#000; background:#fff; margin:0; padding:60px 56px; line-height:1.6; font-size:13pt; }
 .container { max-width:700px; margin:0 auto; }
@@ -3825,30 +4000,89 @@
     <span style="display:inline-block;margin-top:8px">Le ${today}</span>
   </div>`;
 
-      // ── Avec contenu IA généré (lettre formelle pure) ──
-      if (gen) {
+      // ══════ Mode "brief" : synthèse pour avocat ══════
+      if (mode === 'brief' && docs.brief) {
+        const b = docs.brief;
+        const briefCss = `body { font-family: 'Helvetica', Arial, sans-serif; color:#111; background:#fff; margin:0; padding:48px 56px; line-height:1.6; font-size:11.5pt; }
+.container { max-width:720px; margin:0 auto; }
+.docheader { text-align:center; padding-bottom:14px; border-bottom:2px solid #111; margin-bottom:28px; }
+.docheader .label { font-size:9pt; font-weight:600; color:#666; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px; }
+.docheader .title { font-size:14pt; font-weight:700; color:#111; }
+.docheader .date { font-size:9pt; color:#666; margin-top:6px; }
+.summary { padding:12px 16px; background:#f9fafb; border-left:3px solid #5e6ad2; margin-bottom:24px; font-size:11pt; }
+.section { margin-bottom:22px; }
+.section h2 { font-size:9.5pt; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid #999; padding-bottom:3px; margin:0 0 10px; }
+.field { display:flex; gap:8px; font-size:10.5pt; margin-bottom:3px; }
+.field .l { min-width:130px; color:#555; }
+.section ul, .section ol { padding-left:22px; font-size:10.5pt; line-height:1.6; margin:0; }
+.section li { margin-bottom:3px; }
+@page { margin: 1.8cm; }`;
+        const field = (l, v) => v ? `<div class="field"><span class="l">${esc(l)}</span><span>${esc(v)}</span></div>` : '';
+        const sectionList = (title, items, ordered=false) => items?.length ? `<div class="section"><h2>${esc(title)}</h2><${ordered?'ol':'ul'}>${items.map(x => `<li>${esc(typeof x==='string'?x:'')}</li>`).join('')}</${ordered?'ol':'ul'}></div>` : '';
+        const sectionText = (title, text) => text ? `<div class="section"><h2>${esc(title)}</h2><div style="font-size:10.5pt;line-height:1.6">${esc(text)}</div></div>` : '';
         return `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"><title>${esc(gen.title||subLabel)}</title>
+<html lang="fr"><head><meta charset="utf-8"><title>Synthèse ${esc(subLabel)}</title>
+<style>${briefCss}</style></head>
+<body><div class="container">
+  <div class="docheader">
+    <div class="label">Dossier de synthèse — Consultation avocat</div>
+    <div class="title">${esc(subLabel)}</div>
+    <div class="date">Établi le ${today}</div>
+  </div>
+  ${b.summary ? `<div class="summary">${esc(b.summary)}</div>` : ''}
+  ${b.client ? `<div class="section"><h2>Identité du client</h2>
+    ${field('Nom complet', b.client.fullName)}
+    ${field('Date de naissance', b.client.birthDate)}
+    ${field('Lieu de naissance', b.client.birthPlace)}
+    ${field('Nationalité', b.client.nationality)}
+    ${field('Adresse', b.client.address)}
+    ${field('Téléphone', b.client.phone)}
+    ${field('Email', b.client.email)}
+    ${field('Profession', b.client.profession)}
+  </div>` : ''}
+  ${b.adverseParty ? `<div class="section"><h2>Partie adverse</h2>
+    ${field('Identité', b.adverseParty.name)}
+    ${field('Rôle', b.adverseParty.role)}
+    ${field('Adresse', b.adverseParty.address)}
+  </div>` : ''}
+  ${sectionList('Faits chronologiques', b.facts, true)}
+  ${sectionList('Pièces dont dispose le client', b.evidence)}
+  ${sectionList('Démarches déjà entreprises', b.stepsTaken)}
+  ${sectionList('Questions juridiques posées', b.legalQuestions, true)}
+  ${sectionList('Objectifs recherchés', b.objectives)}
+  ${b.applicableLaw?.length ? `<div class="section"><h2>Articles potentiellement applicables</h2>
+    <ul style="list-style:none;padding-left:0">${b.applicableLaw.map(a => `<li><strong>${esc(a.reference||'')}</strong>${a.code?' ('+esc(a.code)+')':''}${a.summary?' — '+esc(a.summary):''}</li>`).join('')}</ul>
+  </div>` : ''}
+  ${sectionText('Urgence / délais à respecter', b.urgency)}
+  ${sectionText('Informations complémentaires', b.additionalInfo)}
+</div></body></html>`;
+      }
+
+      // ══════ Mode "letter" : lettre formelle (défaut) ══════
+      const letter = docs.letter;
+      if (letter) {
+        return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><title>${esc(letter.title||subLabel)}</title>
 <style>${css}</style></head>
 <body><div class="container">
   ${senderBlock}
-  ${gen.recipient ? `<div class="recipient">
-    ${esc(gen.recipient.name||'')}<br>
-    ${esc(gen.recipient.address||'')}
+  ${letter.recipient ? `<div class="recipient">
+    ${esc(letter.recipient.name||'')}<br>
+    ${esc(letter.recipient.address||'')}
   </div>` : ''}
-  ${gen.subject ? `<div class="subject"><strong>Objet :</strong> ${esc(gen.subject)}</div>` : ''}
-  ${gen.send_method ? `<div class="send-method">${esc(gen.send_method)}</div>` : ''}
-  ${gen.title ? `<div class="title">${esc(gen.title)}</div>` : ''}
+  ${letter.subject ? `<div class="subject"><strong>Objet :</strong> ${esc(letter.subject)}</div>` : ''}
+  ${letter.send_method ? `<div class="send-method">${esc(letter.send_method)}</div>` : ''}
+  ${letter.title ? `<div class="title">${esc(letter.title)}</div>` : ''}
   <div class="body">
-    <p>${esc(gen.salutation || 'Madame, Monsieur,')}</p>
-    ${(gen.body||[]).map(p => `<p>${esc(p)}</p>`).join('\n    ')}
-    ${gen.consequences ? `<p>${esc(gen.consequences)}</p>` : ''}
-    <p style="margin-top:32px">${esc(gen.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.')}</p>
+    <p>${esc(letter.salutation || 'Madame, Monsieur,')}</p>
+    ${(letter.body||[]).map(p => `<p>${esc(p)}</p>`).join('\n    ')}
+    ${letter.consequences ? `<p>${esc(letter.consequences)}</p>` : ''}
+    <p style="margin-top:32px">${esc(letter.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.')}</p>
     <p class="signature"><strong>${esc(data?.firstName||'')} ${esc(data?.lastName||'')}</strong></p>
   </div>
-  ${gen.annexes?.length ? `<div class="annexes">
+  ${letter.annexes?.length ? `<div class="annexes">
     <strong>Pièces jointes :</strong>
-    <ul>${gen.annexes.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
+    <ul>${letter.annexes.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
   </div>` : ''}
 </div></body></html>`;
       }
@@ -3868,17 +4102,17 @@
 
     const sanitizeFilename = s => String(s||'dossier').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_').slice(0, 80) || 'dossier';
 
-    const downloadDossierPdf = async (data, subLabel) => {
-      const html = buildDossierHtml(data, subLabel);
-      // Conteneur invisible pour rendre le HTML
+    const downloadDossierPdf = async (data, subLabel, mode='letter') => {
+      const html = buildDossierHtml(data, subLabel, mode);
       const wrap = document.createElement('div');
       wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
       wrap.innerHTML = html;
       document.body.appendChild(wrap);
       try {
+        const suffix = mode === 'brief' ? '_synthese-avocat' : '';
         await window.html2pdf().set({
           margin: [12, 12, 12, 12],
-          filename: sanitizeFilename(subLabel) + '.pdf',
+          filename: sanitizeFilename(subLabel) + suffix + '.pdf',
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -3887,13 +4121,13 @@
       } finally { document.body.removeChild(wrap); }
     };
 
-    const downloadDossierDoc = (data, subLabel) => {
-      const html = buildDossierHtml(data, subLabel);
-      // Word lit le HTML — préfixe BOM pour UTF-8
+    const downloadDossierDoc = (data, subLabel, mode='letter') => {
+      const html = buildDossierHtml(data, subLabel, mode);
+      const suffix = mode === 'brief' ? '_synthese-avocat' : '';
       const blob = new Blob(['﻿', html], { type: 'application/msword' });
       const url  = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = sanitizeFilename(subLabel) + '.doc';
+      a.href = url; a.download = sanitizeFilename(subLabel) + suffix + '.doc';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
@@ -3914,6 +4148,7 @@
       const [loading, setLoading]       = useState(true);
       const [viewing, setViewing]       = useState(null); // { id, title, category, data, created_at }
       const [viewMode, setViewMode]     = useState('view'); // 'view' | 'edit'
+      const [docMode, setDocMode]       = useState('letter'); // 'letter' | 'brief'
       const [loadingView, setLoadingView] = useState(false);
 
       useEffect(() => {
@@ -3998,16 +4233,16 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                 Envoyer à un avocat
               </button>
-              <button onClick={() => downloadDossierPdf(viewing.data, subLabel)}
-                title="Télécharger en PDF"
+              <button onClick={() => downloadDossierPdf(viewing.data, subLabel, docMode)}
+                title={`Télécharger ${docMode==='brief'?'la synthèse avocat':'la lettre'} en PDF`}
                 style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'rgba(239,68,68,0.06)', color:'#ef4444', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,0.14)'}
                 onMouseLeave={e => e.currentTarget.style.background='rgba(239,68,68,0.06)'}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 PDF
               </button>
-              <button onClick={() => downloadDossierDoc(viewing.data, subLabel)}
-                title="Télécharger en Word"
+              <button onClick={() => downloadDossierDoc(viewing.data, subLabel, docMode)}
+                title={`Télécharger ${docMode==='brief'?'la synthèse avocat':'la lettre'} en Word`}
                 style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'rgba(59,130,246,0.06)', color:'#3b82f6', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.background='rgba(59,130,246,0.14)'}
                 onMouseLeave={e => e.currentTarget.style.background='rgba(59,130,246,0.06)'}>
@@ -4028,8 +4263,23 @@
                 </div>
               )}
               {/* Document droite */}
-              <div style={{ flex:1, overflowY:'auto', padding:'32px 24px' }}>
-                <DossierDocument data={viewing.data} subLabel={subLabel} />
+              <div style={{ flex:1, overflowY:'auto', padding:'24px 24px 32px' }}>
+                {/* Tabs : Lettre formelle / Synthèse avocat */}
+                <div style={{ maxWidth:720, margin:'0 auto 18px', display:'flex', gap:8, borderBottom:'1px solid var(--border-subtle)' }}>
+                  <button onClick={() => setDocMode('letter')}
+                    style={{ padding:'10px 16px', background:'none', border:'none', borderBottom: docMode==='letter'?'2px solid #5e6ad2':'2px solid transparent', color: docMode==='letter'?'#7170ff':'var(--text-muted)', fontSize:13, fontWeight: docMode==='letter'?600:500, cursor:'pointer', marginBottom:-1, fontFamily:'inherit' }}>
+                    📨 Lettre formelle
+                  </button>
+                  <button onClick={() => setDocMode('brief')}
+                    style={{ padding:'10px 16px', background:'none', border:'none', borderBottom: docMode==='brief'?'2px solid #5e6ad2':'2px solid transparent', color: docMode==='brief'?'#7170ff':'var(--text-muted)', fontSize:13, fontWeight: docMode==='brief'?600:500, cursor:'pointer', marginBottom:-1, fontFamily:'inherit' }}>
+                    👤 Synthèse pour avocat
+                  </button>
+                  <div style={{ flex:1 }}/>
+                  <span style={{ alignSelf:'center', fontSize:11, color:'var(--text-subtle)', padding:'0 8px' }}>
+                    {docMode==='letter' ? 'À imprimer + signer + envoyer au destinataire' : 'À transmettre à un avocat (briefing complet)'}
+                  </span>
+                </div>
+                <DossierDocument data={viewing.data} subLabel={subLabel} mode={docMode} />
                 <div style={{ maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end', gap:10 }}>
                   {viewMode === 'view' && (userPlan === 'pro_plus' || userPlan === 'admin') && (
                     <button onClick={() => setViewMode('edit')}

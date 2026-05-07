@@ -611,51 +611,91 @@ function requirePremiumPlusAndQuota(req, res, next) {
 }
 
 // Génération du document juridique personnalisé (Premium+ uniquement)
-const DOC_GEN_SYSTEM = `Tu es un assistant juridique français expert en rédaction de courriers et formulaires officiels.
+const DOC_GEN_SYSTEM = `Tu es un assistant juridique français expert. Tu produis SIMULTANÉMENT deux documents distincts à partir d'un même dossier :
 
-À partir de la situation du client (catégorie + sous-catégorie + détails), tu détermines le type de document juridique le plus pertinent et tu le rédiges intégralement, prêt à être imprimé/envoyé.
+═══════════════════════════════════════════════════════
+DOCUMENT 1 — "letter" : LETTRE FORMELLE OFFICIELLE
+═══════════════════════════════════════════════════════
+Destinée au DESTINATAIRE FINAL (créancier, employeur, bailleur, tribunal, procureur, administration…).
+À imprimer, signer, envoyer en LRAR ou déposer au greffe.
+Types possibles : mise en demeure, plainte simple ou avec CPC, recours gracieux/hiérarchique, lettre de contestation, lettre de rétractation, saisine de tribunal compétent (CPH, JAF, tribunal judiciaire, tribunal administratif), requête en exonération, sommation interpellative.
 
-TYPES DE DOCUMENTS POSSIBLES :
-- Mise en demeure (paiement, restitution caution, exécution contractuelle)
-- Lettre de contestation (amende, licenciement, contravention)
-- Recours gracieux ou hiérarchique (administration, préfecture)
-- Plainte simple (faits délictueux, escroquerie, agression)
-- Plainte avec constitution de partie civile
-- Lettre de réclamation (consommation, SAV, service public)
-- Lettre de rétractation (achat à distance — 14 jours)
-- Saisine du tribunal compétent (Conseil de prud'hommes, juge aux affaires familiales, tribunal judiciaire, tribunal administratif)
-- Requête en exonération (amende routière)
-- Sommation interpellative
-- Lettre de mise en jeu de garantie (bancaire, assurance, vices cachés)
+Règles :
+- Articles de loi cités INLINE dans le corps (pas de bloc séparé)
+- Tous les faits du dossier intégrés (noms, dates, montants)
+- Formalisme français strict
+- Délais et conséquences intégrés au corps
+- Aucune instruction utilisateur (c'est une vraie lettre, pas un mode d'emploi)
+- Ton ferme, professionnel, factuel
 
-RÈGLES STRICTES :
-1. Cite des articles de loi PRÉCIS et RÉELS DIRECTEMENT DANS LE CORPS du texte (ex: "En application de l'article 1231-6 du Code civil, ..."). PAS de bloc d'articles séparé.
-2. Intègre TOUS les faits du dossier (noms, dates, montants, lieux).
-3. Respecte le formalisme français : en-tête expéditeur, destinataire, objet, formule d'appel, corps argumenté, formule de politesse, signature.
-4. Indique les délais (8/15/30 jours, 2 mois) DIRECTEMENT dans le corps de la lettre.
-5. Liste les pièces justificatives dans annexes[] uniquement.
-6. NE GÉNÈRE AUCUNE INSTRUCTION UTILISATEUR (ni "comment envoyer", ni "et après l'envoi", ni étapes, ni conseils pratiques). Le document est destiné à être imprimé, signé et envoyé/transmis directement à un destinataire ou un avocat. C'est une lettre formelle, pas un mode d'emploi.
+═══════════════════════════════════════════════════════
+DOCUMENT 2 — "brief" : DOSSIER DE SYNTHÈSE POUR AVOCAT
+═══════════════════════════════════════════════════════
+Destiné à un AVOCAT consulté par le client. Présente l'intégralité du contexte de manière structurée et exhaustive pour permettre une prise en charge rapide.
 
-IMPORTANT — Ton ferme, professionnel, factuel. Conséquences en cas de non-réponse intégrées DANS LE CORPS de la lettre.
+Le brief doit donner à l'avocat toutes les informations qu'il poserait en entretien :
+- Identité civile complète du client
+- Partie adverse (nom, rôle, adresse)
+- Synthèse claire de la situation
+- Chronologie factuelle datée
+- Pièces dont dispose le client (preuves, contrats, courriers, factures…)
+- Démarches déjà entreprises par le client
+- Questions juridiques que le client souhaite poser
+- Objectifs recherchés (annulation, dédommagement, réintégration, etc.)
+- Articles et codes potentiellement applicables (références précises)
+- Urgence / prescription / forclusion à connaître
 
-Réponds UNIQUEMENT en JSON valide avec ce schéma EXACT :
+Pas de formulation de lettre. Le brief est en langage clair, structuré en sections.
+
+═══════════════════════════════════════════════════════
+SCHÉMA JSON DE RÉPONSE (STRICTEMENT)
+═══════════════════════════════════════════════════════
 {
-  "documentType": "Mise en demeure" | "Plainte simple" | "Recours gracieux" | "Lettre de contestation" | "Saisine du Conseil de prud'hommes" | autres types,
-  "title": "TITRE EN MAJUSCULES (ex: MISE EN DEMEURE DE PAYER)",
-  "recipient": {
-    "name": "Destinataire (ex: 'Société XYZ', 'Monsieur le Procureur de la République')",
-    "address": "Adresse complète"
+  "documentType": "ex: Mise en demeure de payer / Plainte simple / Saisine CPH",
+
+  "letter": {
+    "title": "TITRE EN MAJUSCULES",
+    "recipient": { "name": "...", "address": "..." },
+    "subject": "Objet bref",
+    "salutation": "Formule d'appel adaptée",
+    "body": ["paragraphe 1 avec articles inline", "paragraphe 2", "..."],
+    "consequences": "Phrase optionnelle de conséquences (ou null)",
+    "closing": "Formule de politesse complète",
+    "send_method": "ex: 'Envoi par lettre recommandée avec accusé de réception'",
+    "annexes": ["pièce 1", "pièce 2", "..."]
   },
-  "subject": "Objet bref de la lettre",
-  "salutation": "Formule d'appel selon le destinataire",
-  "body": ["paragraphes du corps avec articles cités INLINE et délais/conséquences intégrés"],
-  "consequences": "Phrase optionnelle reprenant les conséquences (ou null si déjà dans body)",
-  "closing": "Formule de politesse complète",
-  "send_method": "Mode d'envoi (ex: 'Envoi par lettre recommandée avec accusé de réception')",
-  "annexes": ["liste des pièces à joindre"]
+
+  "brief": {
+    "client": {
+      "fullName": "Prénom NOM",
+      "birthDate": "JJ/MM/AAAA",
+      "birthPlace": "Ville",
+      "nationality": "...",
+      "address": "...",
+      "phone": "...",
+      "email": "...",
+      "profession": "..."
+    },
+    "adverseParty": {
+      "name": "Nom de la partie adverse",
+      "role": "ex: Employeur / Bailleur / Vendeur / Compagnie d'assurance",
+      "address": "..."
+    },
+    "summary": "Synthèse 2-3 phrases — l'essentiel du dossier",
+    "facts": ["Fait daté 1 — chronologique", "Fait daté 2", "..."],
+    "evidence": ["Pièce probante 1 que possède le client", "..."],
+    "stepsTaken": ["Démarche déjà entreprise par le client", "..."],
+    "legalQuestions": ["Question juridique précise 1", "..."],
+    "objectives": ["Objectif 1 recherché par le client", "..."],
+    "applicableLaw": [
+      { "reference": "Article 1231-6", "code": "Code civil", "summary": "..." }
+    ],
+    "urgency": "Description des délais légaux à respecter (prescription, forclusion, recours)",
+    "additionalInfo": "Toute info utile non couverte ailleurs (ou null)"
+  }
 }
 
-Aucun markdown. Pas de \`\`\`. Juste le JSON brut.`;
+Aucun markdown. Pas de \`\`\`. JSON brut uniquement.`;
 
 app.post('/api/dossiers/:id/generate', requireAuth, requirePremiumPlusAndQuota, async (req, res) => {
   const id = parseInt(req.params.id, 10);
@@ -700,7 +740,7 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      max_tokens: 2500,
+      max_tokens: 4000,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: DOC_GEN_SYSTEM },
@@ -711,7 +751,7 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
     const raw = response.choices[0]?.message?.content || '{}';
     let generated;
     try { generated = JSON.parse(raw); } catch { generated = null; }
-    if (!generated || !generated.body) {
+    if (!generated || !generated.letter || !generated.letter.body) {
       console.error('Doc gen invalid response:', raw);
       return res.status(500).json({ error: 'Réponse IA invalide. Réessayez.' });
     }
