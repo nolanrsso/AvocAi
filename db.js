@@ -99,6 +99,7 @@ try { db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0'); 
 try { db.exec('ALTER TABLE users ADD COLUMN verify_code TEXT'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN verify_expires INTEGER'); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN phone TEXT'); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN avatar_url TEXT'); } catch {}
 
 console.log('✓ Base de données initialisée (avocai.db)');
 

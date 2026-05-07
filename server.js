@@ -341,7 +341,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
       audience: GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
-    const { sub: googleId, email, given_name, family_name } = payload;
+    const { sub: googleId, email, given_name, family_name, picture } = payload;
     const lower = email.toLowerCase().trim();
 
     // Récupère la date de naissance via l'API People
@@ -365,17 +365,17 @@ app.get('/api/auth/google/callback', async (req, res) => {
     if (!user) {
       user = db.prepare('SELECT * FROM users WHERE email = ?').get(lower);
       if (user) {
-        db.prepare('UPDATE users SET google_id = ?, first_name = COALESCE(first_name, ?), last_name = COALESCE(last_name, ?), birth_date = COALESCE(birth_date, ?) WHERE id = ?')
-          .run(googleId, given_name || null, family_name || null, birthDate, user.id);
+        db.prepare('UPDATE users SET google_id = ?, first_name = COALESCE(first_name, ?), last_name = COALESCE(last_name, ?), birth_date = COALESCE(birth_date, ?), avatar_url = COALESCE(avatar_url, ?), email_verified = 1 WHERE id = ?')
+          .run(googleId, given_name || null, family_name || null, birthDate, picture || null, user.id);
         user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
       }
     }
 
-    // 3. Création d'un nouveau compte
+    // 3. Création d'un nouveau compte (email considéré vérifié par Google)
     if (!user) {
       const r = db.prepare(
-        "INSERT INTO users (email, password_hash, google_id, first_name, last_name, birth_date) VALUES (?, '', ?, ?, ?, ?)"
-      ).run(lower, googleId, given_name || null, family_name || null, birthDate);
+        "INSERT INTO users (email, password_hash, google_id, first_name, last_name, birth_date, avatar_url, email_verified) VALUES (?, '', ?, ?, ?, ?, ?, 1)"
+      ).run(lower, googleId, given_name || null, family_name || null, birthDate, picture || null);
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(r.lastInsertRowid));
     }
 
@@ -383,6 +383,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     const userData = encodeURIComponent(JSON.stringify({
       id: user.id, email: user.email, plan: user.plan,
       firstName: user.first_name, lastName: user.last_name,
+      avatarUrl: user.avatar_url,
     }));
 
     // Redirige vers l'app avec le token en query param (récupéré côté frontend)
@@ -427,15 +428,35 @@ app.post('/api/auth/google', async (req, res) => {
 
 // ── Auth: Me ────────────────────────────────────────────
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  const user = db.prepare('SELECT id, email, plan, first_name, last_name, birth_date, phone, email_verified, created_at FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT id, email, plan, first_name, last_name, birth_date, phone, email_verified, avatar_url, created_at FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.status(404).json({ error: 'Utilisateur introuvable.' });
   res.json({ user: {
     id: user.id, email: user.email, plan: user.plan,
     firstName: user.first_name, lastName: user.last_name,
     birthDate: user.birth_date, phone: user.phone,
     emailVerified: !!user.email_verified,
+    avatarUrl: user.avatar_url,
     createdAt: user.created_at,
   } });
+});
+
+// Upload avatar (data URL JPEG/PNG/WebP, max 500KB)
+app.put('/api/auth/avatar', requireAuth, express.json({ limit: '1mb' }), (req, res) => {
+  const { avatarUrl } = req.body || {};
+  if (!avatarUrl || typeof avatarUrl !== 'string') return res.status(400).json({ error: 'Avatar manquant.' });
+  if (!/^data:image\/(jpeg|jpg|png|webp);base64,/.test(avatarUrl)) {
+    return res.status(400).json({ error: 'Format invalide (JPEG/PNG/WebP requis).' });
+  }
+  if (avatarUrl.length > 700_000) return res.status(400).json({ error: 'Image trop volumineuse (max 500KB après compression).' });
+  db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, req.user.id);
+  audit(req.user.id, 'avatar_update');
+  res.json({ ok: true });
+});
+
+app.delete('/api/auth/avatar', requireAuth, (req, res) => {
+  db.prepare('UPDATE users SET avatar_url = NULL WHERE id = ?').run(req.user.id);
+  audit(req.user.id, 'avatar_delete');
+  res.json({ ok: true });
 });
 
 // Mise à jour du profil
