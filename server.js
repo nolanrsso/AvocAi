@@ -629,38 +629,30 @@ TYPES DE DOCUMENTS POSSIBLES :
 - Lettre de mise en jeu de garantie (bancaire, assurance, vices cachés)
 
 RÈGLES STRICTES :
-1. Cite des articles de loi PRÉCIS et RÉELS (Code civil, Code du travail, Code de la consommation, Code de procédure pénale, Code de la route, Code de la santé publique, etc.)
-2. Intègre TOUS les faits du dossier (noms, dates, montants, lieux)
-3. Respecte le formalisme français (en-tête avec coordonnées, objet, formule d'appel, corps argumenté, formule de politesse, signature)
-4. Indique des délais réalistes (8 jours, 15 jours, 30 jours, 2 mois selon le contexte)
-5. Liste les pièces justificatives à joindre
-6. SÉPARE clairement deux types d'instructions :
-   - "next_steps" = comment ENVOYER le document (imprimer, signer, joindre, LRAR, dépôt greffe…)
-   - "follow_up" = la VRAIE suite APRÈS envoi (délai d'attente, relance, recours juridiques si pas de réponse, prochaines étapes contentieuses concrètes)
+1. Cite des articles de loi PRÉCIS et RÉELS DIRECTEMENT DANS LE CORPS du texte (ex: "En application de l'article 1231-6 du Code civil, ..."). PAS de bloc d'articles séparé.
+2. Intègre TOUS les faits du dossier (noms, dates, montants, lieux).
+3. Respecte le formalisme français : en-tête expéditeur, destinataire, objet, formule d'appel, corps argumenté, formule de politesse, signature.
+4. Indique les délais (8/15/30 jours, 2 mois) DIRECTEMENT dans le corps de la lettre.
+5. Liste les pièces justificatives dans annexes[] uniquement.
+6. NE GÉNÈRE AUCUNE INSTRUCTION UTILISATEUR (ni "comment envoyer", ni "et après l'envoi", ni étapes, ni conseils pratiques). Le document est destiné à être imprimé, signé et envoyé/transmis directement à un destinataire ou un avocat. C'est une lettre formelle, pas un mode d'emploi.
 
-IMPORTANT — Ton est ferme, professionnel, factuel. Pas de menaces excessives. Mention des conséquences mesurées et juridiquement fondées.
+IMPORTANT — Ton ferme, professionnel, factuel. Conséquences en cas de non-réponse intégrées DANS LE CORPS de la lettre.
 
 Réponds UNIQUEMENT en JSON valide avec ce schéma EXACT :
 {
   "documentType": "Mise en demeure" | "Plainte simple" | "Recours gracieux" | "Lettre de contestation" | "Saisine du Conseil de prud'hommes" | autres types,
-  "title": "TITRE EN MAJUSCULES (ex: MISE EN DEMEURE DE PAYER, REQUÊTE EN EXONÉRATION)",
+  "title": "TITRE EN MAJUSCULES (ex: MISE EN DEMEURE DE PAYER)",
   "recipient": {
-    "name": "Destinataire (ex: 'Société XYZ', 'Monsieur le Procureur de la République', 'Madame le Greffier en chef')",
-    "address": "Adresse complète OU 'Tribunal judiciaire de [ville]' selon le contexte"
+    "name": "Destinataire (ex: 'Société XYZ', 'Monsieur le Procureur de la République')",
+    "address": "Adresse complète"
   },
   "subject": "Objet bref de la lettre",
-  "salutation": "Formule d'appel — 'Madame, Monsieur,' OU 'Monsieur le Procureur de la République,' OU 'Monsieur le Juge,' selon le destinataire",
-  "body": ["paragraphe 1", "paragraphe 2", "..."],
-  "articles": [
-    {"reference": "Article 1231-6", "code": "Code civil", "summary": "Brève explication"}
-  ],
-  "deadline_text": "Délai accordé au destinataire (ex: '8 jours', '30 jours', 'Sans délai')",
-  "consequences": "Phrase indiquant ce qui se passe en l'absence de réponse",
+  "salutation": "Formule d'appel selon le destinataire",
+  "body": ["paragraphes du corps avec articles cités INLINE et délais/conséquences intégrés"],
+  "consequences": "Phrase optionnelle reprenant les conséquences (ou null si déjà dans body)",
   "closing": "Formule de politesse complète",
-  "send_method": "Mode d'envoi recommandé (ex: 'Lettre recommandée avec accusé de réception', 'Dépôt au greffe', 'Envoi via télérecours.fr')",
-  "annexes": ["liste des pièces à joindre"],
-  "next_steps": ["instructions pratiques POUR envoyer le document : imprimer, signer, joindre pièces, mode d'envoi (LRAR/dépôt au greffe), conserver une copie, etc."],
-  "follow_up": ["VRAI suivi APRÈS envoi : combien de temps attendre, comment relancer, recours possibles si pas de réponse (saisine tribunal, plainte avec CPC, médiation, etc.), prochaines étapes juridiques concrètes"]
+  "send_method": "Mode d'envoi (ex: 'Envoi par lettre recommandée avec accusé de réception')",
+  "annexes": ["liste des pièces à joindre"]
 }
 
 Aucun markdown. Pas de \`\`\`. Juste le JSON brut.`;

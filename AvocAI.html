@@ -2113,81 +2113,64 @@
         </div>
       );
 
-      // ── Vue avec contenu IA généré ─────────────
+      // ── Vue avec contenu IA généré (lettre formelle pure) ─────────────
       if (gen) {
         return (
-          <div style={{maxWidth:680, margin:'0 auto', background:'var(--bg-surface)', borderRadius:12, padding:'48px 56px', border:'1px solid var(--border-default)'}}>
-            {senderBlock}
+          <div style={{maxWidth:680, margin:'0 auto', background:'#ffffff', color:'#111', borderRadius:4, padding:'56px 64px', border:'1px solid var(--border-default)', fontFamily:'"Times New Roman", Georgia, serif'}}>
+            {/* Expéditeur */}
+            <div style={{textAlign:'right', marginBottom:36, fontSize:13, color:'#222', lineHeight:1.7}}>
+              {data?.firstName} {data?.lastName}<br/>
+              {data?.address || ''}<br/>
+              {data?.phone && <>{data.phone}<br/></>}
+              {data?.email && <>{data.email}<br/></>}
+              <span style={{display:'inline-block', marginTop:10}}>Le {today}</span>
+            </div>
 
+            {/* Destinataire */}
             {gen.recipient && (
-              <div style={{marginTop:24, marginBottom:24, fontSize:13, lineHeight:1.8, color:'var(--text-body)'}}>
-                <strong style={{color:'var(--text-primary)'}}>{gen.recipient.name}</strong><br/>
+              <div style={{marginTop:24, marginBottom:32, fontSize:13, lineHeight:1.7, color:'#222'}}>
+                {gen.recipient.name}<br/>
                 {gen.recipient.address}
               </div>
             )}
 
+            {/* Objet + mode d'envoi */}
             {gen.subject && (
-              <div style={{marginTop:32, fontSize:14, color:'var(--text-body)'}}>
-                <strong style={{color:'var(--text-primary)'}}>Objet :</strong> {gen.subject}
+              <div style={{marginTop:24, marginBottom:6, fontSize:14, color:'#111'}}>
+                <strong>Objet :</strong> {gen.subject}
               </div>
             )}
             {gen.send_method && (
-              <div style={{fontSize:11, color:'var(--text-muted)', marginBottom:32, fontStyle:'italic'}}>
+              <div style={{fontSize:13, color:'#444', marginBottom:32}}>
                 {gen.send_method}
               </div>
             )}
 
+            {/* Titre */}
             {gen.title && (
-              <div style={{textAlign:'center', fontWeight:700, fontSize:17, color:'var(--text-primary)', textTransform:'uppercase', letterSpacing:1.2, margin:'32px 0'}}>
+              <div style={{textAlign:'center', fontWeight:700, fontSize:15, color:'#111', textTransform:'uppercase', letterSpacing:1, margin:'36px 0 32px'}}>
                 {gen.title}
               </div>
             )}
 
-            <div style={{fontSize:14, lineHeight:2, color:'var(--text-body)'}}>
-              <p style={{marginBottom:16}}>{gen.salutation || 'Madame, Monsieur,'}</p>
+            {/* Corps */}
+            <div style={{fontSize:14, lineHeight:1.9, color:'#111'}}>
+              <p style={{marginBottom:18}}>{gen.salutation || 'Madame, Monsieur,'}</p>
               {(gen.body||[]).map((p, i) => (
-                <p key={i} style={{marginBottom:16, textAlign:'justify'}}>{p}</p>
+                <p key={i} style={{marginBottom:18, textAlign:'justify'}}>{p}</p>
               ))}
-              {gen.consequences && <p style={{marginBottom:16, textAlign:'justify'}}>{gen.consequences}</p>}
-              <p style={{marginBottom:16}}>{gen.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.'}</p>
-              <p style={{fontWeight:600, marginTop:32}}>{data?.firstName} {data?.lastName}</p>
+              {gen.consequences && <p style={{marginBottom:18, textAlign:'justify'}}>{gen.consequences}</p>}
+              <p style={{marginTop:32, marginBottom:6}}>{gen.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.'}</p>
+              <p style={{marginTop:48, fontWeight:600}}>{data?.firstName} {data?.lastName}</p>
             </div>
 
-            {gen.articles?.length > 0 && (
-              <div style={{marginTop:36, padding:'14px 18px', background:'rgba(94,106,210,0.06)', border:'1px solid rgba(94,106,210,0.18)', borderRadius:10}}>
-                <div style={{fontSize:10, fontWeight:700, color:'#7170ff', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10}}>📚 Articles invoqués</div>
-                {gen.articles.map((a, i) => (
-                  <div key={i} style={{fontSize:12, color:'var(--text-body)', marginBottom:6, lineHeight:1.6}}>
-                    <strong>{a.reference}</strong>{a.code ? ' (' + a.code + ')' : ''}{a.summary ? ' — ' + a.summary : ''}
-                  </div>
-                ))}
-              </div>
-            )}
-
+            {/* Pièces jointes (convention française : PJ en bas de lettre) */}
             {gen.annexes?.length > 0 && (
-              <div style={{marginTop:14, padding:'14px 18px', background:'var(--bg-subtle)', borderRadius:10, fontSize:12, color:'var(--text-body)'}}>
-                <strong style={{color:'var(--text-primary)'}}>Pièces à joindre :</strong>
-                <ul style={{marginTop:6, paddingLeft:18, lineHeight:1.7}}>
-                  {gen.annexes.map((a, i) => <li key={i} style={{marginBottom:3}}>{a}</li>)}
+              <div style={{marginTop:48, fontSize:13, color:'#222', lineHeight:1.7, borderTop:'1px solid #e5e7eb', paddingTop:16}}>
+                <strong>Pièces jointes :</strong>
+                <ul style={{marginTop:6, paddingLeft:18}}>
+                  {gen.annexes.map((a, i) => <li key={i} style={{marginBottom:2}}>{a}</li>)}
                 </ul>
-              </div>
-            )}
-
-            {gen.next_steps?.length > 0 && (
-              <div style={{marginTop:24, padding:'18px 22px', background:'rgba(94,106,210,0.06)', border:'1.5px dashed rgba(94,106,210,0.45)', borderRadius:10}}>
-                <div style={{fontSize:11, fontWeight:700, color:'#7170ff', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10}}>📤 Comment envoyer ce document</div>
-                <ol style={{paddingLeft:22, fontSize:13, color:'var(--text-body)', lineHeight:1.7}}>
-                  {gen.next_steps.map((s, i) => <li key={i} style={{marginBottom:5}}>{s}</li>)}
-                </ol>
-              </div>
-            )}
-
-            {gen.follow_up?.length > 0 && (
-              <div style={{marginTop:14, padding:'18px 22px', background:'rgba(245,158,11,0.06)', border:'1.5px dashed rgba(245,158,11,0.45)', borderRadius:10}}>
-                <div style={{fontSize:11, fontWeight:700, color:'#f59e0b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10}}>⏭ Et après l'envoi ? Suites possibles</div>
-                <ol style={{paddingLeft:22, fontSize:13, color:'var(--text-body)', lineHeight:1.7}}>
-                  {gen.follow_up.map((s, i) => <li key={i} style={{marginBottom:5}}>{s}</li>)}
-                </ol>
               </div>
             )}
           </div>
@@ -3247,25 +3230,27 @@
       if (gen) {
         lines.push(`Bonjour Maître,`);
         lines.push(``);
-        lines.push(`Je vous adresse ci-dessous mon dossier (rédigé via AvocAI) dans le cadre d'une demande de consultation juridique.`);
+        lines.push(`Je vous adresse ci-dessous mon dossier dans le cadre d'une demande de consultation juridique.`);
         lines.push(``);
-        lines.push(`══════════════════════════════════════════`);
-        lines.push(gen.title || subLabel || 'DOSSIER');
-        lines.push(`══════════════════════════════════════════`);
+        lines.push(`---`);
         lines.push(``);
+        // Expéditeur
         lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
         if (data?.address) lines.push(data.address);
         if (data?.phone)   lines.push(data.phone);
         if (data?.email)   lines.push(data.email);
         lines.push(`Le ${today}`);
         lines.push(``);
+        // Destinataire
         if (gen.recipient) {
-          lines.push(`Destinataire : ${gen.recipient.name||''}`);
+          lines.push(gen.recipient.name||'');
           if (gen.recipient.address) lines.push(gen.recipient.address);
           lines.push(``);
         }
-        if (gen.subject) { lines.push(`Objet : ${gen.subject}`); lines.push(``); }
-        if (gen.send_method) { lines.push(`(${gen.send_method})`); lines.push(``); }
+        if (gen.subject) { lines.push(`Objet : ${gen.subject}`); }
+        if (gen.send_method) { lines.push(gen.send_method); }
+        lines.push(``);
+        if (gen.title) { lines.push(gen.title); lines.push(``); }
         lines.push(gen.salutation || 'Madame, Monsieur,');
         lines.push(``);
         (gen.body||[]).forEach(p => { lines.push(p); lines.push(``); });
@@ -3274,31 +3259,10 @@
         lines.push(``);
         lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
         lines.push(``);
-        if (gen.articles?.length) {
-          lines.push(`──────────────────────────────────────────`);
-          lines.push(`ARTICLES INVOQUÉS :`);
-          gen.articles.forEach(a => lines.push(`• ${a.reference}${a.code ? ' (' + a.code + ')' : ''}${a.summary ? ' — ' + a.summary : ''}`));
-          lines.push(``);
-        }
         if (gen.annexes?.length) {
-          lines.push(`PIÈCES À JOINDRE :`);
-          gen.annexes.forEach(a => lines.push(`• ${a}`));
-          lines.push(``);
+          lines.push(`Pièces jointes :`);
+          gen.annexes.forEach(a => lines.push(`- ${a}`));
         }
-        if (gen.next_steps?.length) {
-          lines.push(`──────────────────────────────────────────`);
-          lines.push(`COMMENT ENVOYER CE DOCUMENT :`);
-          gen.next_steps.forEach((s, i) => lines.push(`${i+1}. ${s}`));
-          lines.push(``);
-        }
-        if (gen.follow_up?.length) {
-          lines.push(`──────────────────────────────────────────`);
-          lines.push(`ET APRÈS L'ENVOI — SUITES POSSIBLES :`);
-          gen.follow_up.forEach((s, i) => lines.push(`${i+1}. ${s}`));
-          lines.push(``);
-        }
-        lines.push(`──────────────────────────────────────────`);
-        lines.push(`Document généré via AvocAI`);
         return lines.join('\n');
       }
 
@@ -3839,43 +3803,29 @@
       const esc = s => String(s||'').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
       const gen = data?.generated;
 
-      const css = `body { font-family: 'Times New Roman', Georgia, serif; color:#111827; background:#fff; margin:0; padding:40px; line-height:1.7; }
+      const css = `body { font-family: 'Times New Roman', Georgia, serif; color:#000; background:#fff; margin:0; padding:60px 56px; line-height:1.6; font-size:13pt; }
 .container { max-width:700px; margin:0 auto; }
-.sender { text-align:right; margin-bottom:32px; font-size:13px; color:#374151; line-height:1.8; }
-.recipient { text-align:left; margin:24px 0; font-size:13px; line-height:1.8; }
-.recipient strong { color:#111; }
-.subject { margin:32px 0 6px; font-size:14px; }
-.subject strong { color:#111; }
-.send-method { font-size:12px; color:#6b7280; font-style:italic; margin-bottom:30px; }
-.title { text-align:center; font-weight:700; font-size:17px; text-transform:uppercase; letter-spacing:1.2px; margin:32px 0; font-family:'Inter','Helvetica',Arial,sans-serif; color:#111; }
-.body { font-size:14px; line-height:2; color:#1f2937; }
+.sender { text-align:right; margin-bottom:36px; line-height:1.5; }
+.recipient { margin:24px 0 32px; line-height:1.5; }
+.subject { margin:24px 0 4px; }
+.send-method { margin-bottom:32px; }
+.title { text-align:center; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin:36px 0 28px; font-size:14pt; }
 .body p { margin:0 0 16px; text-align:justify; }
-.signature { font-weight:600; margin-top:36px; }
-.articles { margin-top:36px; padding:14px 18px; background:#eef0fb; border:1px solid #c7cdf0; border-radius:8px; font-size:12px; line-height:1.8; }
-.articles .label { font-weight:700; color:#5e6ad2; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.06em; font-size:10px; }
-.articles ul { list-style:none; padding:0; margin:0; }
-.articles li { margin-bottom:6px; color:#1f2937; }
-.annexes { margin-top:14px; padding:14px 18px; background:#f3f4f6; border-radius:8px; font-size:12px; color:#374151; }
-.annexes strong { color:#111; }
-.annexes ul { padding-left:18px; margin-top:6px; line-height:1.7; }
-.send-block { margin-top:28px; padding:18px 22px; background:#eef0fb; border:1.5px dashed #5e6ad2; border-radius:8px; font-size:13px; color:#1f2937; }
-.send-block .label { font-weight:700; color:#5e6ad2; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; font-size:11px; }
-.send-block ol { padding-left:22px; line-height:1.7; }
-.send-block li { margin-bottom:5px; }
-.follow-up { margin-top:14px; padding:18px 22px; background:#fffbeb; border:1.5px dashed #f59e0b; border-radius:8px; font-size:13px; color:#1f2937; }
-.follow-up .label { font-weight:700; color:#b45309; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; font-size:11px; }
-.follow-up ol { padding-left:22px; line-height:1.7; }
-.follow-up li { margin-bottom:5px; }`;
+.signature { margin-top:48px; }
+.annexes { margin-top:48px; padding-top:14px; border-top:1px solid #888; }
+.annexes ul { padding-left:20px; margin:6px 0 0; }
+.annexes li { margin-bottom:2px; }
+@page { margin: 2cm; }`;
 
       const senderBlock = `<div class="sender">
     ${esc(data?.firstName||'')} ${esc(data?.lastName||'')}<br>
-    ${esc(data?.address||'Adresse non renseignée')}<br>
+    ${data?.address ? esc(data.address) + '<br>' : ''}
     ${data?.phone ? esc(data.phone) + '<br>' : ''}
     ${data?.email ? esc(data.email) + '<br>' : ''}
-    <span style="display:inline-block;margin-top:6px">Le ${today}</span>
+    <span style="display:inline-block;margin-top:8px">Le ${today}</span>
   </div>`;
 
-      // ── Avec contenu IA généré ──
+      // ── Avec contenu IA généré (lettre formelle pure) ──
       if (gen) {
         return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><title>${esc(gen.title||subLabel)}</title>
@@ -3883,7 +3833,7 @@
 <body><div class="container">
   ${senderBlock}
   ${gen.recipient ? `<div class="recipient">
-    <strong>${esc(gen.recipient.name||'')}</strong><br>
+    ${esc(gen.recipient.name||'')}<br>
     ${esc(gen.recipient.address||'')}
   </div>` : ''}
   ${gen.subject ? `<div class="subject"><strong>Objet :</strong> ${esc(gen.subject)}</div>` : ''}
@@ -3893,24 +3843,12 @@
     <p>${esc(gen.salutation || 'Madame, Monsieur,')}</p>
     ${(gen.body||[]).map(p => `<p>${esc(p)}</p>`).join('\n    ')}
     ${gen.consequences ? `<p>${esc(gen.consequences)}</p>` : ''}
-    <p>${esc(gen.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.')}</p>
-    <p class="signature">${esc(data?.firstName||'')} ${esc(data?.lastName||'')}</p>
+    <p style="margin-top:32px">${esc(gen.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.')}</p>
+    <p class="signature"><strong>${esc(data?.firstName||'')} ${esc(data?.lastName||'')}</strong></p>
   </div>
-  ${gen.articles?.length ? `<div class="articles">
-    <div class="label">Articles invoqués</div>
-    <ul>${gen.articles.map(a => `<li><strong>${esc(a.reference||'')}</strong>${a.code ? ' (' + esc(a.code) + ')' : ''}${a.summary ? ' — ' + esc(a.summary) : ''}</li>`).join('')}</ul>
-  </div>` : ''}
   ${gen.annexes?.length ? `<div class="annexes">
-    <strong>Pièces à joindre :</strong>
+    <strong>Pièces jointes :</strong>
     <ul>${gen.annexes.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
-  </div>` : ''}
-  ${gen.next_steps?.length ? `<div class="send-block">
-    <div class="label">📤 Comment envoyer ce document</div>
-    <ol>${gen.next_steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
-  </div>` : ''}
-  ${gen.follow_up?.length ? `<div class="follow-up">
-    <div class="label">⏭ Et après l'envoi ? Suites possibles</div>
-    <ol>${gen.follow_up.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
   </div>` : ''}
 </div></body></html>`;
       }
