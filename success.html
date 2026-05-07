@@ -1,19 +1,42 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AvocAI Pro — Bienvenue !</title>
+  <title>AvocAI Premium — Bienvenue !</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    // Applique le thème immédiatement (avant peinture, pour éviter le FOUC)
+    (() => {
+      const t = localStorage.getItem('avocai_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    :root {
-      --bg-page:      #ffffff;
-      --text-primary: #0f1011;
-      --text-muted:   #6b6b72;
+    [data-theme="light"] {
+      --bg-page:        #e8e9eb;
+      --bg-card:        #ffffff;
+      --text-primary:   #111827;
+      --text-muted:     #4b5563;
+      --border-default: rgba(0,0,0,0.18);
+      --check-bg:       #f0fdf4;
+      --check-border:   #bbf7d0;
+      --check-color:    #16a34a;
+    }
+    [data-theme="dark"] {
+      --bg-page:        #08090a;
+      --bg-card:        #191a1b;
+      --text-primary:   #f7f8f8;
+      --text-muted:     #8a8f98;
+      --border-default: rgba(255,255,255,0.08);
+      --check-bg:       rgba(34,197,94,0.10);
+      --check-border:   rgba(34,197,94,0.35);
+      --check-color:    #22c55e;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { transition: background-color 200ms ease, color 200ms ease; }
     body {
       font-family: "Inter", sans-serif;
       background: var(--bg-page);
@@ -28,12 +51,17 @@
       text-align: center;
       max-width: 480px;
       width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-default);
+      border-radius: 18px;
+      padding: 48px 36px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.18);
     }
     .logo {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 40px;
+      margin-bottom: 32px;
       text-decoration: none;
     }
     .logo span {
@@ -43,30 +71,32 @@
       letter-spacing: -0.3px;
     }
     .check-circle {
-      width: 72px;
-      height: 72px;
+      width: 76px;
+      height: 76px;
       border-radius: 50%;
-      background: #f0fdf4;
-      border: 1.5px solid #bbf7d0;
+      background: var(--check-bg);
+      border: 1.5px solid var(--check-border);
+      color: var(--check-color);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 28px;
-      font-size: 32px;
+      margin: 0 auto 26px;
+      font-size: 36px;
+      font-weight: 700;
     }
     h1 {
-      font-size: 32px;
-      font-weight: 510;
+      font-size: 30px;
+      font-weight: 590;
       color: var(--text-primary);
       letter-spacing: -0.5px;
-      margin-bottom: 14px;
-      line-height: 1.15;
+      margin-bottom: 12px;
+      line-height: 1.2;
     }
     p {
-      font-size: 18px;
+      font-size: 16px;
       color: var(--text-muted);
       line-height: 1.6;
-      margin-bottom: 36px;
+      margin-bottom: 32px;
     }
     .btn {
       display: inline-block;
@@ -76,11 +106,22 @@
       border-radius: 8px;
       text-decoration: none;
       font-size: 15px;
-      font-weight: 510;
+      font-weight: 600;
       letter-spacing: -0.1px;
       transition: background 0.15s;
     }
     .btn:hover { background: #828fff; }
+    .loading {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -97,9 +138,9 @@
     <div class="check-circle">✓</div>
 
     <h1 id="title">Bienvenue dans AvocAI Premium !</h1>
-    <p>Votre abonnement est actif. Vous pouvez maintenant accéder à toutes les démarches officielles.</p>
+    <p id="subtitle">Votre abonnement est actif. Vous pouvez maintenant accéder à toutes les démarches officielles.</p>
 
-    <a href="/" class="btn">Retour au chat →</a>
+    <a href="/" class="btn" id="cta">Retour au chat →</a>
   </div>
 
   <script>
@@ -120,7 +161,6 @@
       .then(data => {
         if (data.user) {
           localStorage.setItem('avocai_user', JSON.stringify(data.user));
-          // Met à jour le titre si le plan retourné diffère du param URL
           const lbl = data.plan === 'pro_plus' ? 'AvocAI Premium +' : 'AvocAI Premium';
           document.getElementById('title').textContent = 'Bienvenue dans ' + lbl + ' !';
           document.title = lbl + ' — Bienvenue !';
