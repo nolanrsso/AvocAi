@@ -168,7 +168,7 @@ const googleClient = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
 //   modify = modification IA d'un dossier (/api/dossiers/:id/chat)
 const ACTION_LIMITS = {
   free:     { chat: 5 },
-  pro:      { chat: 25, gen: 3 },
+  pro:      { chat: 25, gen: 3, modify: 15 },
   pro_plus: { chat: 25, gen: 3, modify: 20 },
   admin:    null, // illimité
 };

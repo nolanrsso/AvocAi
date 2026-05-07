@@ -4010,6 +4010,9 @@
       const [sending, setSending]   = useState(false);
       const bottomRef = useRef(null);
       const isPlus = userPlan === 'pro_plus' || userPlan === 'admin';
+      const isPro  = userPlan === 'pro';
+      const isPaid = isPlus || isPro;
+      const modifyLimit = isPlus ? 20 : 15; // affichage de la limite
 
       useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, sending]);
 
@@ -4035,13 +4038,13 @@
         setSending(false);
       };
 
-      if (!isPlus) {
+      if (!isPaid) {
         return (
           <div style={{ display:'flex', flexDirection:'column', height:'100%', alignItems:'center', justifyContent:'center', padding:'20px 16px', textAlign:'center' }}>
             <div style={{ fontSize:36, marginBottom:12 }}>🔒</div>
             <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:6 }}>Modification IA</div>
-            <div style={{ fontSize:11, color:'var(--text-muted)', lineHeight:1.6, marginBottom:14 }}>Réservée aux abonnés <strong style={{ color:'#a78bfa' }}>Premium+</strong>.</div>
-            <a href="/#tarifs" style={{ fontSize:11, color:'#7170ff', textDecoration:'none', padding:'6px 12px', borderRadius:6, border:'1px solid rgba(113,112,255,0.4)' }}>Découvrir Premium+ →</a>
+            <div style={{ fontSize:11, color:'var(--text-muted)', lineHeight:1.6, marginBottom:14 }}>Réservée aux abonnés <strong style={{ color:'#7170ff' }}>Premium</strong> ou <strong style={{ color:'#a78bfa' }}>Premium+</strong>.</div>
+            <a href="/#tarifs" style={{ fontSize:11, color:'#7170ff', textDecoration:'none', padding:'6px 12px', borderRadius:6, border:'1px solid rgba(113,112,255,0.4)' }}>Découvrir les plans →</a>
           </div>
         );
       }
@@ -4050,10 +4053,11 @@
         <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
           {/* Header */}
           <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border-subtle)', flexShrink:0 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', display:'flex', alignItems:'center', gap:7 }}>
-              <span style={{ color:'#7170ff' }}>✦</span> Assistant dossier
+            <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:7 }}>
+              <span style={{ display:'flex', alignItems:'center', gap:7 }}><span style={{ color:'#7170ff' }}>✦</span> Assistant dossier</span>
+              <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:9999, background: isPlus ? 'rgba(167,139,250,0.15)' : 'rgba(94,106,210,0.15)', color: isPlus ? '#a78bfa' : '#7170ff', border: `1px solid ${isPlus ? 'rgba(167,139,250,0.3)' : 'rgba(113,112,255,0.3)'}`, letterSpacing:'0.04em' }}>{modifyLimit}/jour</span>
             </div>
-            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>Modifiez votre dossier avec l'IA</div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{isPlus ? 'Modifiez votre dossier avec l\'IA' : 'Modifiez votre synthèse avec l\'IA'}</div>
           </div>
 
           {/* Messages */}
@@ -4488,7 +4492,7 @@
                   onGenerate={regenerateDossier} generating={generating} userPlan={userPlan} />
                 {genError && <div style={{ maxWidth:720, margin:'12px auto 0', padding:'10px 14px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, color:'#ef4444', fontSize:13, textAlign:'center' }}>{genError}</div>}
                 <div style={{ maxWidth:660, margin:'16px auto 0', display:'flex', justifyContent:'flex-end', gap:10 }}>
-                  {viewMode === 'view' && (userPlan === 'pro_plus' || userPlan === 'admin') && (
+                  {viewMode === 'view' && (userPlan === 'pro' || userPlan === 'pro_plus' || userPlan === 'admin') && (
                     <button onClick={() => setViewMode('edit')}
                       style={{ padding:'10px 22px', borderRadius:8, border:'none', background:'#5e6ad2', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}
                       onMouseEnter={e => e.currentTarget.style.background='#828fff'}
@@ -4545,7 +4549,7 @@
               {!loadingView && !loading && dossiers.length > 0 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {dossiers.map(d => (
-                    <div key={d.id} onClick={() => openDossier(d.id, isPlus ? 'edit' : 'view')}
+                    <div key={d.id} onClick={() => openDossier(d.id, 'edit')}
                       style={{ padding:'14px 16px', borderRadius:12, border:'1px solid var(--border-default)', background:'var(--bg-surface)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, transition:'border-color 0.15s, background 0.15s' }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(94,106,210,0.5)'; e.currentTarget.style.background='rgba(94,106,210,0.04)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border-default)'; e.currentTarget.style.background='var(--bg-surface)'; }}
@@ -4562,15 +4566,13 @@
                         </div>
                       </div>
                       <div style={{ display:'flex', gap:6, flexShrink:0, alignItems:'center' }}>
-                        {isPlus && (
-                          <button onClick={e => { e.stopPropagation(); openDossier(d.id, 'edit'); }}
-                            title="Modifier avec l'IA"
-                            style={{ padding:'6px 12px', borderRadius:6, border:'1px solid rgba(94,106,210,0.3)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:12, fontWeight:600, cursor:'pointer' }}
-                            onMouseEnter={e => e.currentTarget.style.background='rgba(94,106,210,0.18)'}
-                            onMouseLeave={e => e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
-                            Modifier
-                          </button>
-                        )}
+                        <button onClick={e => { e.stopPropagation(); openDossier(d.id, 'edit'); }}
+                          title="Modifier avec l'IA"
+                          style={{ padding:'6px 12px', borderRadius:6, border:'1px solid rgba(94,106,210,0.3)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:12, fontWeight:600, cursor:'pointer' }}
+                          onMouseEnter={e => e.currentTarget.style.background='rgba(94,106,210,0.18)'}
+                          onMouseLeave={e => e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
+                          Modifier
+                        </button>
                         <button onClick={e => { e.stopPropagation(); openDossier(d.id, 'view'); }}
                           title={isPlus ? 'Voir le dossier' : 'Voir la synthèse'}
                           style={{ width:30, height:30, borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
