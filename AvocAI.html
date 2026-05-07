@@ -3461,6 +3461,37 @@
       window.location.href = url;
     };
 
+    /* Texte de la lettre formelle, pour mailto vers le destinataire */
+    const buildLetterEmailBody = (data, letter) => {
+      if (!letter) return '';
+      const today = new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+      const lines = [];
+      // En-tête expéditeur
+      lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
+      if (data?.address) lines.push(data.address);
+      if (data?.phone)   lines.push(data.phone);
+      if (data?.email)   lines.push(data.email);
+      lines.push(`Le ${today}`);
+      lines.push(``);
+      if (letter.recipient?.name)    lines.push(letter.recipient.name);
+      if (letter.recipient?.address) lines.push(letter.recipient.address);
+      lines.push(``);
+      if (letter.title) { lines.push(letter.title); lines.push(``); }
+      lines.push(letter.salutation || 'Madame, Monsieur,');
+      lines.push(``);
+      (letter.body || []).forEach(p => { lines.push(p); lines.push(``); });
+      if (letter.consequences) { lines.push(letter.consequences); lines.push(``); }
+      lines.push(letter.closing || 'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.');
+      lines.push(``);
+      lines.push(`${data?.firstName||''} ${data?.lastName||''}`);
+      if (letter.annexes?.length) {
+        lines.push(``);
+        lines.push(`Pièces jointes :`);
+        letter.annexes.forEach(a => lines.push(`- ${a}`));
+      }
+      return lines.join('\n');
+    };
+
     const copyToClipboard = async text => {
       try { await navigator.clipboard.writeText(text); return true; }
       catch {
@@ -4213,42 +4244,80 @@
               {(userPlan === 'pro_plus' || userPlan === 'admin') && (
                 <button onClick={regenerateDossier}
                   title="Régénérer le document avec l'IA"
-                  style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid rgba(113,112,255,0.4)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
-                  onMouseEnter={e=>e.currentTarget.style.background='rgba(94,106,210,0.18)'}
-                  onMouseLeave={e=>e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:12, fontWeight:500, cursor:'pointer', transition:'background 0.15s' }}
+                  onMouseEnter={e=>{ e.currentTarget.style.background='rgba(94,106,210,0.08)'; e.currentTarget.style.color='#7170ff'; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--text-muted)'; }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><polyline points="21 3 21 8 16 8"/></svg>
                   Régénérer
                 </button>
               )}
-              <button onClick={() => {
-                  // Stocke ce dossier comme contexte pour le DossierPickerModal et ouvre la recherche d'avocat
-                  window.__avocaiPreselectedDossier = viewing;
-                  window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search', { detail: { preselectedDossier: viewing } }));
-                  onClose();
-                }}
-                title="Envoyer ce dossier à un avocat"
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid rgba(34,197,94,0.4)', background:'rgba(34,197,94,0.08)', color:'#22c55e', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
-                onMouseEnter={e=>e.currentTarget.style.background='rgba(34,197,94,0.18)'}
-                onMouseLeave={e=>e.currentTarget.style.background='rgba(34,197,94,0.08)'}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-                Envoyer à un avocat
-              </button>
-              <button onClick={() => downloadDossierPdf(viewing.data, subLabel, docMode)}
-                title={`Télécharger ${docMode==='brief'?'la synthèse avocat':'la lettre'} en PDF`}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'rgba(239,68,68,0.06)', color:'#ef4444', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(239,68,68,0.14)'}
-                onMouseLeave={e => e.currentTarget.style.background='rgba(239,68,68,0.06)'}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                PDF
-              </button>
-              <button onClick={() => downloadDossierDoc(viewing.data, subLabel, docMode)}
-                title={`Télécharger ${docMode==='brief'?'la synthèse avocat':'la lettre'} en Word`}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'rgba(59,130,246,0.06)', color:'#3b82f6', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(59,130,246,0.14)'}
-                onMouseLeave={e => e.currentTarget.style.background='rgba(59,130,246,0.06)'}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                DOC
-              </button>
+              {/* Boutons d'action contextuels selon le mode */}
+              {docMode === 'letter' ? (
+                <>
+                  {/* 1. Imprimer (PDF) */}
+                  <button onClick={() => downloadDossierPdf(viewing.data, subLabel, 'letter')}
+                    title="Imprimer ou télécharger en PDF"
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:12, fontWeight:600, cursor:'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background='var(--bg-surface-elevated)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    Imprimer / PDF
+                  </button>
+                  <button onClick={() => downloadDossierDoc(viewing.data, subLabel, 'letter')}
+                    title="Télécharger en Word"
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:11, fontWeight:600, cursor:'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background='var(--bg-surface-elevated)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    DOC
+                  </button>
+                  {/* 2. Envoyer par mail au destinataire */}
+                  {(() => {
+                    const { letter } = extractDocs(viewing?.data?.generated);
+                    const recipientEmail = letter?.recipient?.email || '';
+                    const subject = letter?.subject || subLabel;
+                    return (
+                      <button onClick={() => openMailTo(recipientEmail, subject, buildLetterEmailBody(viewing.data, letter))}
+                        title="Envoyer la lettre par email au destinataire"
+                        style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid rgba(94,106,210,0.4)', background:'rgba(94,106,210,0.08)', color:'#7170ff', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
+                        onMouseEnter={e=>e.currentTarget.style.background='rgba(94,106,210,0.18)'}
+                        onMouseLeave={e=>e.currentTarget.style.background='rgba(94,106,210,0.08)'}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        Envoyer par mail
+                      </button>
+                    );
+                  })()}
+                </>
+              ) : (
+                <>
+                  {/* Mode brief : envoi à un avocat */}
+                  <button onClick={() => downloadDossierPdf(viewing.data, subLabel, 'brief')}
+                    title="Télécharger la synthèse en PDF"
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-body)', fontSize:12, fontWeight:600, cursor:'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background='var(--bg-surface-elevated)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Télécharger PDF
+                  </button>
+                  <button onClick={() => downloadDossierDoc(viewing.data, subLabel, 'brief')}
+                    title="Télécharger la synthèse en Word"
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', fontSize:11, fontWeight:600, cursor:'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background='var(--bg-surface-elevated)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    DOC
+                  </button>
+                  <button onClick={() => {
+                      window.dispatchEvent(new CustomEvent('avocai:open-lawyer-search', { detail: { preselectedDossier: viewing } }));
+                      onClose();
+                    }}
+                    title="Trouver un avocat et lui transmettre cette synthèse"
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:6, border:'1px solid rgba(34,197,94,0.4)', background:'rgba(34,197,94,0.08)', color:'#22c55e', fontSize:12, fontWeight:600, cursor:'pointer', transition:'background 0.15s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(34,197,94,0.18)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='rgba(34,197,94,0.08)'}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    Trouver un avocat
+                  </button>
+                </>
+              )}
               <button onClick={onClose} style={{ background:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:13, padding:'5px 10px', borderRadius:6, border:'1px solid var(--border-default)' }}>✕ Fermer</button>
             </div>
             {/* Layout : chat IA gauche (mode édition uniquement) + document */}
