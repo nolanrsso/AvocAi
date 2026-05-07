@@ -27,17 +27,22 @@ app.use(helmet({
       styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc:   ["'self'", 'https://fonts.gstatic.com'],
       imgSrc:    ["'self'", 'data:', 'blob:', 'https:'],
-      connectSrc:["'self'", 'https://api.openai.com', 'https://api.stripe.com', 'https://geo.api.gouv.fr', 'https://api-adresse.data.gouv.fr', 'https://nominatim.openstreetmap.org', 'https://overpass-api.de'],
+      connectSrc:["'self'", 'https://api.openai.com', 'https://api.stripe.com', 'https://geo.api.gouv.fr', 'https://api-adresse.data.gouv.fr', 'https://nominatim.openstreetmap.org', 'https://overpass-api.de', 'https://accounts.google.com', 'https://oauth2.googleapis.com'],
       frameSrc:  ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com', 'https://accounts.google.com'],
       objectSrc: ["'none'"],
       baseUri:   ["'self'"],
-      formAction:["'self'"],
+      // Autorise les redirections OAuth Google (form-action 'self' bloquait le retour)
+      formAction:["'self'", 'https://accounts.google.com', 'https://oauth2.googleapis.com'],
+      // En dev (HTTP localhost), désactive l'upgrade automatique http→https
+      upgradeInsecureRequests: IS_PROD ? [] : null,
     },
   },
   crossOriginEmbedderPolicy: false,        // permet les CDN externes
-  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, // permet OAuth popups
+  crossOriginOpenerPolicy: false,          // désactivé : permet les popups OAuth Google
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
   hsts: IS_PROD ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  originAgentCluster: false,
 }));
 
 // ── Sécurité : CORS — restreint aux origines autorisées ──
