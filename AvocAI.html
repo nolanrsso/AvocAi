@@ -4298,10 +4298,18 @@
       const [viewMode, setViewMode]     = useState('view'); // 'view' | 'edit'
       const [docMode, setDocMode]       = useState(isPlus ? 'letter' : 'brief'); // Premium simple : brief uniquement
       const [loadingView, setLoadingView] = useState(false);
+      const [emailUnverified, setEmailUnverified] = useState(false);
 
       useEffect(() => {
         fetch('/api/dossiers', { headers: authHeaders() })
-          .then(r => r.ok ? r.json() : { dossiers: [] })
+          .then(async r => {
+            if (r.status === 403) {
+              const d = await r.json();
+              if (d.email_unverified) setEmailUnverified(true);
+              return { dossiers: [] };
+            }
+            return r.json();
+          })
           .then(d => { setDossiers(d.dossiers || []); setLoading(false); })
           .catch(() => setLoading(false));
       }, []);
@@ -4544,13 +4552,28 @@
                   <p style={{ fontSize:13, color:'var(--text-muted)' }}>Chargement…</p>
                 </div>
               )}
-              {!loadingView && !loading && dossiers.length === 0 && (
+              {!loadingView && !loading && emailUnverified && (
+                <div style={{ padding:'24px 22px', background:'rgba(245,158,11,0.06)', border:'1.5px solid rgba(245,158,11,0.35)', borderRadius:12, textAlign:'center' }}>
+                  <div style={{ fontSize:42, marginBottom:14 }}>📧</div>
+                  <div style={{ fontSize:16, fontWeight:600, color:'var(--text-primary)', marginBottom:8 }}>Vérifiez votre adresse email</div>
+                  <div style={{ fontSize:13, color:'var(--text-muted)', lineHeight:1.7, marginBottom:18, maxWidth:380, margin:'0 auto 18px' }}>
+                    Pour accéder à {isPlus ? 'vos dossiers' : 'vos synthèses'} contenant des données juridiques sensibles, nous devons d'abord vérifier votre adresse email. Un code à 6 chiffres vous sera envoyé.
+                  </div>
+                  <button onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('avocai:open-account')); }}
+                    style={{ padding:'11px 22px', borderRadius:8, border:'none', background:'#f59e0b', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background='#fbbf24'}
+                    onMouseLeave={e => e.currentTarget.style.background='#f59e0b'}>
+                    ✉️ Vérifier mon email
+                  </button>
+                </div>
+              )}
+              {!loadingView && !loading && !emailUnverified && dossiers.length === 0 && (
                 <div style={{ textAlign:'center', padding:'48px 0' }}>
                   <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
                   <p style={{ fontSize:15, color:'var(--text-muted)', lineHeight:1.6 }}>{isPlus ? 'Aucun dossier pour l\'instant.' : 'Aucune synthèse pour l\'instant.'}<br/>Commencez une démarche pour {isPlus ? 'générer votre premier document.' : 'générer votre première synthèse pour avocat.'}</p>
                 </div>
               )}
-              {!loadingView && !loading && dossiers.length > 0 && (
+              {!loadingView && !loading && !emailUnverified && dossiers.length > 0 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {dossiers.map(d => (
                     <div key={d.id} onClick={() => openDossier(d.id, 'edit')}
@@ -4863,75 +4886,95 @@
 
     const AlertsModal = ({ onClose, userPlan }) => {
       const isPlus = userPlan === 'pro_plus' || userPlan === 'admin';
-      const saved  = (() => { try { return JSON.parse(localStorage.getItem(ALERTS_KEY) || 'null'); } catch { return null; } })();
-      const [phone, setPhone]     = useState(saved?.phone || '');
-      const [enabled, setEnabled] = useState(saved?.enabled || false);
-      const [done, setDone]       = useState(false);
+      const [alerts, setAlerts] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [emailVerified, setEmailVerified] = useState(true);
 
-      const fmt = v => v.replace(/[^\d +]/g, '').slice(0, 17);
-      const valid = /^(\+?\d[\d\s]{8,16})$/.test(phone.trim());
+      useEffect(() => {
+        if (!isPlus) { setLoading(false); return; }
+        fetch('/api/alerts', { headers: authHeaders() })
+          .then(async r => {
+            if (r.status === 403) {
+              const d = await r.json();
+              if (d.email_unverified) setEmailVerified(false);
+              return { alerts: [] };
+            }
+            return r.json();
+          })
+          .then(d => { setAlerts(d.alerts || []); setLoading(false); })
+          .catch(() => setLoading(false));
+      }, [isPlus]);
 
-      const save = () => {
-        if (!valid) return;
-        localStorage.setItem(ALERTS_KEY, JSON.stringify({ phone: phone.trim(), enabled: true, ts: Date.now() }));
-        setEnabled(true); setDone(true);
-        setTimeout(() => onClose(), 1400);
+      const removeAlert = async (alertId, dossierId) => {
+        if (!confirm('Supprimer cette alerte ?')) return;
+        await fetch(`/api/dossiers/${dossierId}/alerts/${alertId}`, { method:'DELETE', headers: authHeaders() });
+        setAlerts(prev => prev.filter(a => a.id !== alertId));
       };
-      const disable = () => {
-        localStorage.removeItem(ALERTS_KEY);
-        setEnabled(false); setPhone('');
-      };
+
+      const fmtDate = ts => new Date(ts).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+      const daysLeft = ts => Math.max(0, Math.ceil((ts - Date.now()) / (24*60*60*1000)));
 
       return (
         <div style={{ position:'fixed', inset:0, zIndex:950, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
           onClick={e => e.target===e.currentTarget && onClose()}>
-          <div style={{ background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:18, width:'100%', maxWidth:460, padding:'24px 26px', boxShadow:'0 20px 60px rgba(0,0,0,0.4)' }}>
-            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+          <div style={{ background:'var(--bg-panel)', border:'1px solid var(--border-default)', borderRadius:18, width:'100%', maxWidth:540, maxHeight:'88vh', display:'flex', flexDirection:'column', boxShadow:'0 20px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', padding:'24px 26px 0' }}>
               <div>
                 <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', color: isPlus ? '#a78bfa' : '#7170ff', textTransform:'uppercase', marginBottom:4 }}>
                   {isPlus ? 'Premium+ · Alertes' : 'Aperçu'}
                 </div>
                 <div style={{ fontSize:18, fontWeight:600, color:'var(--text-primary)' }}>🔔 Alertes délais légaux</div>
                 <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:4, lineHeight:1.55 }}>
-                  Recevez un appel automatique avant l'expiration de vos délais (mise en demeure, recours, prescription…).
+                  Recevez un email automatique 7 jours et 1 jour avant chaque échéance liée à un de vos dossiers.
                 </div>
               </div>
               <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--text-muted)', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
             </div>
 
+            <div style={{ padding:'18px 26px 24px', overflowY:'auto', flex:1 }}>
             {!isPlus ? (
-              <div style={{ marginTop:12, padding:'14px 16px', background:'rgba(167,139,250,0.08)', border:'1px solid rgba(167,139,250,0.25)', borderRadius:10 }}>
+              <div style={{ padding:'14px 16px', background:'rgba(167,139,250,0.08)', border:'1px solid rgba(167,139,250,0.25)', borderRadius:10 }}>
                 <div style={{ fontSize:13, color:'var(--text-body)', lineHeight:1.6, marginBottom:12 }}>Cette fonctionnalité est réservée aux abonnés <strong style={{ color:'#a78bfa' }}>Premium+</strong>.</div>
                 <a href="/#tarifs" onClick={onClose} style={{ display:'inline-block', padding:'9px 16px', borderRadius:8, background:'linear-gradient(135deg,#7c3aed,#a78bfa)', color:'#fff', fontSize:13, fontWeight:600, textDecoration:'none' }}>Découvrir Premium+ →</a>
               </div>
-            ) : done ? (
-              <div style={{ padding:'18px 14px', textAlign:'center' }}>
-                <div style={{ fontSize:32, marginBottom:10 }}>✅</div>
-                <div style={{ fontSize:14, fontWeight:600, color:'#22c55e', marginBottom:4 }}>Alertes activées !</div>
-                <div style={{ fontSize:12, color:'var(--text-muted)' }}>Nous vous appellerons sur le {phone}.</div>
+            ) : !emailVerified ? (
+              <div style={{ padding:'14px 16px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:10 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'#f59e0b', marginBottom:6 }}>⚠ Email non vérifié</div>
+                <div style={{ fontSize:12, color:'var(--text-body)', lineHeight:1.6, marginBottom:10 }}>Vérifiez votre adresse email dans <strong>Mon compte</strong> pour recevoir les alertes.</div>
+                <button onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('avocai:open-account')); }} style={{ padding:'8px 14px', borderRadius:8, border:'none', background:'#f59e0b', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>Vérifier mon email</button>
+              </div>
+            ) : loading ? (
+              <div style={{ display:'flex', justifyContent:'center', padding:'30px 0' }}>
+                <div style={{ width:24, height:24, borderRadius:'50%', border:'2px solid var(--border-default)', borderTopColor:'#5e6ad2', animation:'spin 0.8s linear infinite' }}/>
+              </div>
+            ) : alerts.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'30px 12px' }}>
+                <div style={{ fontSize:32, marginBottom:10 }}>📅</div>
+                <div style={{ fontSize:13, color:'var(--text-muted)', lineHeight:1.6 }}>Aucune alerte pour l'instant.<br/>Les alertes sont créées automatiquement après chaque génération de dossier (selon les délais légaux : 8 jours, 15 jours, etc.).</div>
               </div>
             ) : (
-              <>
-                <label style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.04em', display:'block', marginBottom:6, marginTop:10 }}>
-                  📞 Numéro de téléphone
-                </label>
-                <input value={phone} onChange={e => setPhone(fmt(e.target.value))}
-                  placeholder="+33 6 12 34 56 78"
-                  style={{ width:'100%', padding:'10px 14px', borderRadius:8, border:'1px solid var(--border-default)', background:'var(--bg-surface)', color:'var(--text-primary)', fontSize:14, outline:'none', boxSizing:'border-box' }}
-                  onFocus={e => e.target.style.borderColor='#5e6ad2'} onBlur={e => e.target.style.borderColor='var(--border-default)'}/>
-                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6, lineHeight:1.5 }}>Appel automatique 7 jours et 48 h avant chaque échéance détectée dans vos dossiers.</div>
-
-                <div style={{ display:'flex', gap:8, marginTop:18 }}>
-                  {enabled && <button onClick={disable} style={{ flex:1, padding:'10px 14px', borderRadius:8, border:'1px solid rgba(239,68,68,0.3)', background:'transparent', color:'#ef4444', fontSize:13, fontWeight:600, cursor:'pointer' }}>Désactiver</button>}
-                  <button onClick={save} disabled={!valid}
-                    style={{ flex:2, padding:'10px 14px', borderRadius:8, border:'none', background: valid?'#5e6ad2':'var(--border-default)', color: valid?'#fff':'var(--text-subtle)', fontSize:13, fontWeight:600, cursor: valid?'pointer':'not-allowed' }}
-                    onMouseEnter={e => { if(valid) e.currentTarget.style.background='#828fff'; }}
-                    onMouseLeave={e => { if(valid) e.currentTarget.style.background='#5e6ad2'; }}>
-                    {enabled ? 'Mettre à jour' : '🔔 Activer les alertes'}
-                  </button>
-                </div>
-              </>
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {alerts.map(a => {
+                  const days = daysLeft(a.deadline_at);
+                  const urgent = days <= 3;
+                  return (
+                    <div key={a.id} style={{ padding:'12px 14px', border:`1px solid ${urgent?'rgba(239,68,68,0.4)':'var(--border-default)'}`, borderRadius:10, background: urgent?'rgba(239,68,68,0.05)':'var(--bg-surface)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:3 }}>{a.label.replace(/^AUTO:\s*/, '')}</div>
+                        <div style={{ fontSize:11, color:'var(--text-muted)' }}>{a.dossier_title}</div>
+                        <div style={{ fontSize:11, color: urgent?'#ef4444':'var(--text-subtle)', marginTop:4, fontWeight:600 }}>
+                          {days === 0 ? '⚠ Aujourd\'hui' : days === 1 ? '⚠ Demain' : `${days} jours · ${fmtDate(a.deadline_at)}`}
+                        </div>
+                      </div>
+                      <button onClick={() => removeAlert(a.id, a.dossier_id)}
+                        title="Supprimer l'alerte"
+                        style={{ width:30, height:30, borderRadius:6, border:'1px solid var(--border-default)', background:'transparent', color:'var(--text-muted)', cursor:'pointer', fontSize:14, flexShrink:0 }}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
+            </div>
           </div>
         </div>
       );

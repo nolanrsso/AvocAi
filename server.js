@@ -10,7 +10,37 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
+const nodemailer = require('nodemailer');
 const db = require('./db');
+
+// ── Email transport (SMTP) ──────────────────────────────
+// Configure SMTP via .env :
+//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+// Si non configuré → log dans la console (dev)
+const SMTP_CONFIGURED = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+const mailTransporter = SMTP_CONFIGURED
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    })
+  : null;
+const MAIL_FROM = process.env.SMTP_FROM || 'AvocAI <noreply@avocai.fr>';
+
+async function sendMail({ to, subject, text, html }) {
+  if (!mailTransporter) {
+    console.log(`[MAIL — dev fallback] To: ${to} | Subject: ${subject}\n${text || html}`);
+    return { dev: true };
+  }
+  try {
+    const info = await mailTransporter.sendMail({ from: MAIL_FROM, to, subject, text, html });
+    return { messageId: info.messageId };
+  } catch (e) {
+    console.error('Mail error:', e.message);
+    throw e;
+  }
+}
 
 const app = express();
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -208,6 +238,18 @@ function requireAuth(req, res, next) {
   } catch {
     return res.status(401).json({ error: 'Token invalide ou expiré.' });
   }
+}
+
+// ── Middleware : exige un email vérifié (pour accès aux dossiers sensibles) ──
+function requireVerifiedEmail(req, res, next) {
+  const u = db.prepare('SELECT email_verified FROM users WHERE id = ?').get(req.user.id);
+  if (!u?.email_verified) {
+    return res.status(403).json({
+      error: 'Veuillez vérifier votre adresse email avant d\'accéder à vos dossiers.',
+      email_unverified: true,
+    });
+  }
+  next();
 }
 
 // ── Helpers Quotas par action ───────────────────────────
@@ -546,17 +588,41 @@ app.delete('/api/auth/me', requireAuth, async (req, res) => {
 });
 
 // Vérification email — demande de code
-app.post('/api/auth/email/verify-request', verifyLimiter, requireAuth, (req, res) => {
-  const u = db.prepare('SELECT email, email_verified FROM users WHERE id = ?').get(req.user.id);
+app.post('/api/auth/email/verify-request', verifyLimiter, requireAuth, async (req, res) => {
+  const u = db.prepare('SELECT email, first_name, email_verified FROM users WHERE id = ?').get(req.user.id);
   if (!u) return res.status(404).json({ error: 'Utilisateur introuvable.' });
   if (u.email_verified) return res.status(400).json({ error: 'Email déjà vérifié.' });
   const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 chiffres
   const expires = Date.now() + 10 * 60 * 1000; // 10 minutes
   db.prepare('UPDATE users SET verify_code = ?, verify_expires = ? WHERE id = ?').run(code, expires, req.user.id);
-  console.log(`[VERIFY] Code pour ${u.email} : ${code} (10 min)`);
-  // TODO en prod : envoyer le code par email via SMTP/Resend.
-  // En dev, on retourne le code dans la réponse pour permettre la vérification immédiate.
-  res.json({ ok: true, devCode: process.env.NODE_ENV === 'production' ? undefined : code });
+
+  const html = `
+<div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:12px">
+  <h1 style="color:#111;font-size:20px;margin:0 0 16px">Bonjour ${u.first_name || ''},</h1>
+  <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 24px">
+    Pour finaliser la vérification de votre adresse email sur <strong>AvocAI</strong>, voici votre code de confirmation :
+  </p>
+  <div style="text-align:center;margin:24px 0">
+    <div style="display:inline-block;padding:16px 32px;background:#5e6ad2;color:#fff;font-size:32px;font-weight:700;letter-spacing:8px;border-radius:10px;font-family:monospace">${code}</div>
+  </div>
+  <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:24px 0 0">
+    Ce code est valable <strong>10 minutes</strong>. Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.
+  </p>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0 16px"/>
+  <p style="color:#9ca3af;font-size:11px;text-align:center;margin:0">AvocAI · Assistant juridique IA · Ne répondez pas à cet email.</p>
+</div>`;
+  const text = `Bonjour ${u.first_name || ''},\n\nVotre code de vérification AvocAI : ${code}\n\nValable 10 minutes.\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message.`;
+
+  let mailResult = null;
+  try {
+    mailResult = await sendMail({ to: u.email, subject: 'Code de vérification AvocAI', text, html });
+  } catch (e) {
+    console.error('Verify mail send error:', e.message);
+  }
+
+  audit(req.user.id, 'verify_request', { sent: !!mailResult && !mailResult.dev });
+  // En dev (SMTP non configuré) : on renvoie le code pour permettre la vérification
+  res.json({ ok: true, devCode: (mailResult?.dev) ? code : undefined, sent: !mailResult?.dev });
 });
 
 // Vérification email — validation
@@ -606,20 +672,20 @@ app.get('/api/quota/status-legacy', requireAuth, (req, res) => {
 });
 
 // ── Dossiers ────────────────────────────────────────────
-app.get('/api/dossiers', requireAuth, (req, res) => {
+app.get('/api/dossiers', requireAuth, requireVerifiedEmail, (req, res) => {
   const rows = db.prepare(
     'SELECT id, title, category, created_at FROM dossiers WHERE user_id = ? ORDER BY id DESC'
   ).all(req.user.id);
   res.json({ dossiers: rows });
 });
 
-app.get('/api/dossiers/:id', requireAuth, (req, res) => {
+app.get('/api/dossiers/:id', requireAuth, requireVerifiedEmail, (req, res) => {
   const row = db.prepare('SELECT * FROM dossiers WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!row) return res.status(404).json({ error: 'Dossier introuvable.' });
   res.json({ dossier: { ...row, data: JSON.parse(row.data || '{}') } });
 });
 
-app.post('/api/dossiers', requireAuth, (req, res) => {
+app.post('/api/dossiers', requireAuth, requireVerifiedEmail, (req, res) => {
   const title    = sanitizeText(req.body?.title, 200);
   const category = sanitizeText(req.body?.category, 50);
   const data     = req.body?.data;
@@ -633,7 +699,7 @@ app.post('/api/dossiers', requireAuth, (req, res) => {
   res.json({ id: Number(result.lastInsertRowid), title: title.trim(), category: category.trim() });
 });
 
-app.delete('/api/dossiers/:id', requireAuth, (req, res) => {
+app.delete('/api/dossiers/:id', requireAuth, requireVerifiedEmail, (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID invalide.' });
   const r = db.prepare('DELETE FROM dossiers WHERE id = ? AND user_id = ?').run(id, req.user.id);
@@ -775,8 +841,10 @@ SCHÉMA JSON DE RÉPONSE (STRICTEMENT)
     "body": ["paragraphe 1 avec articles inline", "paragraphe 2", "..."],
     "consequences": "Phrase optionnelle de conséquences (ou null)",
     "closing": "Formule de politesse complète",
-    "send_method": "ex: 'Envoi par lettre recommandée avec accusé de réception'",
-    "annexes": ["pièce 1", "pièce 2", "..."]
+    "send_method": "ex: 'Envoi par lettre recommandée avec demande d'avis de réception'",
+    "annexes": ["pièce 1", "pièce 2", "..."],
+    "deadline_days": 8,
+    "deadline_label": "Mise en demeure — délai de réponse de 8 jours"
   },
 
   "brief": {
@@ -864,7 +932,7 @@ Réponds UNIQUEMENT en JSON valide avec ce schéma EXACT :
 
 Aucun markdown. Pas de \`\`\`. JSON brut uniquement.`;
 
-app.post('/api/dossiers/:id/generate', requireAuth, withAction('gen'), async (req, res) => {
+app.post('/api/dossiers/:id/generate', requireAuth, requireVerifiedEmail, withAction('gen'), async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID invalide.' });
 
@@ -909,7 +977,7 @@ ${data.timeline || '(non renseignée)'}
 INFORMATIONS COMPLÉMENTAIRES :
 ${addlText}
 
-Rédige le document juridique le plus adapté à cette situation, en intégrant tous ces éléments.`;
+Rédige le document juridique le plus adapté à cette situation, en intégrant TOUS ces éléments factuels. La lettre doit être prête à être imprimée, signée et envoyée TELLE QUELLE pour entamer une vraie procédure auprès du destinataire ou de la juridiction compétente. N'invente AUCUN article, AUCUN nom, AUCUNE date. Si une information est manquante, utilise une formulation neutre (« à compléter », « cf. pièce jointe ») plutôt que d'inventer.`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -948,6 +1016,18 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
     db.prepare('UPDATE dossiers SET data = ? WHERE id = ?').run(JSON.stringify(data), id);
 
     audit(req.user.id, 'dossier_generate', { id, type: generated.documentType, mode: briefOnly ? 'brief' : 'full' });
+
+    // Création automatique d'une alerte selon deadline_days du letter
+    const deadlineDays = parseInt(data.generated?.letter?.deadline_days, 10);
+    if (Number.isInteger(deadlineDays) && deadlineDays > 0 && deadlineDays <= 365) {
+      const deadlineAt = Date.now() + deadlineDays * 24 * 60 * 60 * 1000;
+      const label = data.generated.letter.deadline_label || `Échéance ${data.generated.documentType || row.title}`;
+      // On supprime les anciennes alertes auto pour ce dossier avant d'en recréer
+      db.prepare('DELETE FROM dossier_alerts WHERE dossier_id = ? AND label LIKE \'AUTO:%\'').run(id);
+      db.prepare('INSERT INTO dossier_alerts (dossier_id, user_id, label, deadline_at, created_at) VALUES (?, ?, ?, ?, ?)')
+        .run(id, req.user.id, 'AUTO: ' + label, deadlineAt, Date.now());
+    }
+
     res.json({ generated: data.generated, dossierId: id });
   } catch (err) {
     console.error('Doc gen error:', err.status, err.message);
@@ -955,8 +1035,97 @@ Rédige le document juridique le plus adapté à cette situation, en intégrant 
   }
 });
 
+// ── Alertes délais légaux par dossier ──────────────────
+
+app.get('/api/dossiers/:id/alerts', requireAuth, requireVerifiedEmail, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID invalide.' });
+  const own = db.prepare('SELECT id FROM dossiers WHERE id = ? AND user_id = ?').get(id, req.user.id);
+  if (!own) return res.status(404).json({ error: 'Dossier introuvable.' });
+  const rows = db.prepare('SELECT id, label, deadline_at, reminder_7d_sent, reminder_1d_sent, created_at FROM dossier_alerts WHERE dossier_id = ? ORDER BY deadline_at ASC').all(id);
+  res.json({ alerts: rows });
+});
+
+app.post('/api/dossiers/:id/alerts', requireAuth, requireVerifiedEmail, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { label, deadline_at } = req.body || {};
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID invalide.' });
+  if (!label || typeof label !== 'string') return res.status(400).json({ error: 'Libellé requis.' });
+  const deadlineMs = parseInt(deadline_at, 10);
+  if (!Number.isFinite(deadlineMs) || deadlineMs < Date.now()) return res.status(400).json({ error: 'Échéance invalide.' });
+  const own = db.prepare('SELECT id FROM dossiers WHERE id = ? AND user_id = ?').get(id, req.user.id);
+  if (!own) return res.status(404).json({ error: 'Dossier introuvable.' });
+  const r = db.prepare('INSERT INTO dossier_alerts (dossier_id, user_id, label, deadline_at, created_at) VALUES (?, ?, ?, ?, ?)').run(id, req.user.id, sanitizeText(label, 200), deadlineMs, Date.now());
+  res.json({ id: Number(r.lastInsertRowid), label, deadline_at: deadlineMs });
+});
+
+app.delete('/api/dossiers/:id/alerts/:alertId', requireAuth, requireVerifiedEmail, (req, res) => {
+  const aid = parseInt(req.params.alertId, 10);
+  if (!Number.isInteger(aid) || aid <= 0) return res.status(400).json({ error: 'ID invalide.' });
+  const r = db.prepare('DELETE FROM dossier_alerts WHERE id = ? AND user_id = ?').run(aid, req.user.id);
+  if (r.changes === 0) return res.status(404).json({ error: 'Alerte introuvable.' });
+  res.json({ ok: true });
+});
+
+// Vue agrégée : toutes les alertes de l'utilisateur (pour AlertsModal global)
+app.get('/api/alerts', requireAuth, requireVerifiedEmail, (req, res) => {
+  const rows = db.prepare(`SELECT a.id, a.dossier_id, a.label, a.deadline_at, a.reminder_7d_sent, a.reminder_1d_sent, d.title AS dossier_title, d.category AS dossier_category
+                            FROM dossier_alerts a
+                            JOIN dossiers d ON d.id = a.dossier_id
+                            WHERE a.user_id = ? ORDER BY a.deadline_at ASC`).all(req.user.id);
+  res.json({ alerts: rows });
+});
+
+// ── Cron : envoi de rappels par email avant échéance ──
+const ONE_DAY = 24 * 60 * 60 * 1000;
+async function checkAlertsAndNotify() {
+  try {
+    const now = Date.now();
+    const sevenDays = now + 7 * ONE_DAY;
+    const oneDay   = now + 1 * ONE_DAY;
+
+    // Rappel 7 jours
+    const due7 = db.prepare(`SELECT a.*, d.title AS dossier_title, u.email AS user_email, u.first_name
+                              FROM dossier_alerts a
+                              JOIN dossiers d ON d.id = a.dossier_id
+                              JOIN users u ON u.id = a.user_id
+                              WHERE a.reminder_7d_sent = 0 AND a.deadline_at <= ? AND a.deadline_at > ?`).all(sevenDays, now);
+    for (const a of due7) {
+      const daysLeft = Math.ceil((a.deadline_at - now) / ONE_DAY);
+      const subject = `Échéance dans ${daysLeft} jour${daysLeft>1?'s':''} — ${a.dossier_title}`;
+      const text = `Bonjour ${a.first_name || ''},\n\nUne échéance approche concernant votre dossier « ${a.dossier_title} » :\n\n${a.label.replace(/^AUTO:\s*/, '')}\n\nDate limite : ${new Date(a.deadline_at).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' })}\n\nConnectez-vous sur AvocAI pour voir le détail du dossier.\n\n— AvocAI`;
+      try {
+        await sendMail({ to: a.user_email, subject, text });
+        db.prepare('UPDATE dossier_alerts SET reminder_7d_sent = 1 WHERE id = ?').run(a.id);
+      } catch (e) { console.error('Alert 7d send error:', e.message); }
+    }
+
+    // Rappel J-1
+    const due1 = db.prepare(`SELECT a.*, d.title AS dossier_title, u.email AS user_email, u.first_name
+                              FROM dossier_alerts a
+                              JOIN dossiers d ON d.id = a.dossier_id
+                              JOIN users u ON u.id = a.user_id
+                              WHERE a.reminder_1d_sent = 0 AND a.deadline_at <= ? AND a.deadline_at > ?`).all(oneDay, now);
+    for (const a of due1) {
+      const subject = `⚠ Échéance demain — ${a.dossier_title}`;
+      const text = `Bonjour ${a.first_name || ''},\n\nDernier rappel : l'échéance de votre dossier « ${a.dossier_title} » expire demain.\n\n${a.label.replace(/^AUTO:\s*/, '')}\n\nDate limite : ${new Date(a.deadline_at).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' })}\n\n— AvocAI`;
+      try {
+        await sendMail({ to: a.user_email, subject, text });
+        db.prepare('UPDATE dossier_alerts SET reminder_1d_sent = 1 WHERE id = ?').run(a.id);
+      } catch (e) { console.error('Alert 1d send error:', e.message); }
+    }
+  } catch (e) {
+    console.error('Cron alerts error:', e.message);
+  }
+}
+
+// Lance la vérification toutes les heures
+setInterval(checkAlertsAndNotify, 60 * 60 * 1000);
+// Une exécution 10s après le démarrage pour rattraper les alertes en attente
+setTimeout(checkAlertsAndNotify, 10 * 1000);
+
 // Chat IA spécialisé pour modifier un dossier (Premium+ uniquement, compte dans le quota journalier)
-app.post('/api/dossiers/:id/chat', requireAuth, withAction('modify'), async (req, res) => {
+app.post('/api/dossiers/:id/chat', requireAuth, requireVerifiedEmail, withAction('modify'), async (req, res) => {
   const { message, history } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message manquant.' });
 

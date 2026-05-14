@@ -65,6 +65,19 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS dossier_alerts (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    dossier_id        INTEGER NOT NULL,
+    user_id           INTEGER NOT NULL,
+    label             TEXT NOT NULL,
+    deadline_at       INTEGER NOT NULL,
+    reminder_7d_sent  INTEGER NOT NULL DEFAULT 0,
+    reminder_1d_sent  INTEGER NOT NULL DEFAULT 0,
+    created_at        INTEGER NOT NULL,
+    FOREIGN KEY (dossier_id) REFERENCES dossiers(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS daily_actions (
     user_id INTEGER NOT NULL,
     date    TEXT NOT NULL,
