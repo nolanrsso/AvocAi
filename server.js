@@ -682,13 +682,65 @@ Destinée au DESTINATAIRE FINAL (créancier, employeur, bailleur, tribunal, proc
 À imprimer, signer, envoyer en LRAR ou déposer au greffe.
 Types possibles : mise en demeure, plainte simple ou avec CPC, recours gracieux/hiérarchique, lettre de contestation, lettre de rétractation, saisine de tribunal compétent (CPH, JAF, tribunal judiciaire, tribunal administratif), requête en exonération, sommation interpellative.
 
-Règles :
-- Articles de loi cités INLINE dans le corps (pas de bloc séparé)
-- Tous les faits du dossier intégrés (noms, dates, montants)
-- Formalisme français strict
-- Délais et conséquences intégrés au corps
-- Aucune instruction utilisateur (c'est une vraie lettre, pas un mode d'emploi)
-- Ton ferme, professionnel, factuel
+RÈGLES STRICTES POUR LA CONFORMITÉ JURIDIQUE FRANÇAISE :
+
+1. ARTICLES DE LOI cités INLINE et toujours RÉELS (jamais inventés) :
+   - Mise en demeure de payer : art. 1231-6, 1231-7, 1344 du Code civil
+   - Restitution caution locative : art. 22 loi 6 juillet 1989
+   - Saisine Conseil de prud'hommes : art. R1452-1, R1452-2 du Code du travail
+   - Saisine Tribunal judiciaire : art. 54, 56, 57 du Code de procédure civile (CPC)
+   - Plainte simple : art. 15-3 et 40 du Code de procédure pénale (CPP)
+   - Plainte avec constitution de partie civile : art. 85 et 86 CPP (au doyen des juges d'instruction)
+   - Recours gracieux/hiérarchique : art. L411-1 et suivants du CRPA
+   - Requête en exonération amende : art. 529-2 CPP, art. R49-1 du même code
+   - Rétractation à distance : art. L221-18 et L221-28 du Code de la consommation
+   - Vice caché : art. 1641 et 1648 du Code civil
+   - Licenciement abusif : art. L1232-1 et suivants du Code du travail
+   - Trouble anormal de voisinage : jurisprudence Cass. 2e civ., 19 nov. 1986
+
+2. DESTINATAIRE PRÉCIS selon le type :
+   - Mise en demeure → personne/société débitrice
+   - Plainte → "Monsieur le Procureur de la République près le Tribunal judiciaire de [ville]"
+   - Plainte avec CPC → "Madame/Monsieur le Doyen des juges d'instruction près le Tribunal judiciaire de [ville]"
+   - Saisine CPH → "Madame/Monsieur le Président du Conseil de prud'hommes de [ville]" — Greffe
+   - Saisine TJ → "Madame/Monsieur le Greffier en chef du Tribunal judiciaire de [ville]"
+   - Recours administratif → "Monsieur le Préfet de [département]" ou "Madame la Maire/le Maire de [ville]" ou l'administration concernée
+   - Requête en exonération amende → "Officier du Ministère Public — Centre Automatisé de Constatation des Infractions Routières"
+
+3. JURIDICTION COMPÉTENTE explicite (ville + nature) selon adresse du client/défendeur/lieu des faits.
+
+4. FORMULE D'APPEL adaptée :
+   - "Madame, Monsieur," (personne morale ou inconnu)
+   - "Monsieur le Procureur de la République," (plainte simple)
+   - "Madame le Doyen, Monsieur le Doyen," (plainte CPC)
+   - "Madame le Président, Monsieur le Président," (saisine juridiction)
+   - "Monsieur le Préfet,"
+
+5. MENTIONS OBLIGATOIRES dans le corps :
+   - Présentation : "Je soussigné(e), [Prénom NOM], né(e) le [date] à [lieu], de nationalité [...], demeurant [adresse]" + profession si pertinent
+   - Exposé chronologique des faits (avec dates)
+   - Moyens en droit (articles cités)
+   - Demande précise et chiffrée
+   - Délai de réponse (8 ou 15 jours pour mise en demeure)
+   - Mention "Lettre recommandée avec demande d'avis de réception" en tête si applicable
+   - Conséquences à défaut : "Faute de réponse dans le délai imparti, je me réserve le droit de saisir [juridiction compétente]" + intérêts moratoires
+
+6. send_method précis (forme officielle exacte) :
+   - "Envoi par lettre recommandée avec demande d'avis de réception"
+   - "Dépôt au greffe du Conseil de prud'hommes de [ville]"
+   - "Dépôt ou envoi par lettre recommandée au Procureur de la République"
+   - "Télérecours citoyens (www.telerecours.fr)" pour juridiction administrative
+
+7. closing — formules de politesse standards :
+   - Personne morale/individu : "Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées."
+   - Procureur : "Je vous prie d'agréer, Monsieur le Procureur de la République, l'expression de ma haute considération."
+   - Juge : "Je vous prie d'agréer, Madame, Monsieur le Président, l'expression de ma haute considération."
+
+8. annexes[] numérotées : "Pièce n°1 : [description]", "Pièce n°2 : [description]"...
+
+9. AUCUNE instruction utilisateur, AUCUN markdown, AUCUNE invention juridique. Le document doit pouvoir être imprimé, signé et utilisé tel quel devant une juridiction.
+
+10. Ton ferme, professionnel, factuel, JURIDIQUE. Aucun langage familier.
 
 ═══════════════════════════════════════════════════════
 DOCUMENT 2 — "brief" : DOSSIER DE SYNTHÈSE POUR AVOCAT
